@@ -7,6 +7,9 @@ rm -rf dist && mkdir dist
 cp index.html sw.js manifest.webmanifest dist/
 cp -R css js icons dist/
 find dist -name .DS_Store -delete
-printf '/sw.js\n  Cache-Control: no-cache\n/*\n  X-Robots-Tag: noindex\n' > dist/_headers
+VERSION=$(sed -n "s/^var VERSION = '\(.*\)';/\1/p" sw.js)
+[ -n "$VERSION" ] || { echo "VERSION not found in sw.js"; exit 1; }
+printf '{"version":"%s"}\n' "$VERSION" > dist/version.json
+printf '/sw.js\n  Cache-Control: no-cache\n/version.json\n  Cache-Control: no-store\n/*\n  X-Robots-Tag: noindex\n' > dist/_headers
 printf 'User-agent: *\nDisallow: /\n' > dist/robots.txt
-echo "dist/ ready: $(find dist -type f | wc -l | tr -d ' ') files"
+echo "dist/ ready ($VERSION): $(find dist -type f | wc -l | tr -d ' ') files"

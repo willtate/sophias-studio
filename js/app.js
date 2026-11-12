@@ -744,6 +744,7 @@
       state.page = null;
       clearHistory();
       buildGallery();
+      if (window.__applyUpdateIfReady) window.__applyUpdateIfReady();
     });
   }
 
@@ -1642,8 +1643,66 @@
 
   // Offline support when hosted; skipped on localhost so edits show up immediately.
   var devHost = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-  if ('serviceWorker' in navigator && location.protocol === 'https:' && !devHost) {
-    navigator.serviceWorker.register('sw.js').catch(function () {});
+  if ('serviceWorker' in navigator && window.isSecureContext && !devHost) {
+    setupUpdates();
+  }
+
+  // ---------- Auto-update ----------
+  // On launch (and whenever the app comes back to the front) ask the server for version.json.
+  // Offline or no answer: carry on with the cached copy. Newer: download it in the background,
+  // then switch over when it won't interrupt her: right away on the home screen, otherwise
+  // when she goes back home or the app is put away (her drawing is saved first).
+  function setupUpdates() {
+    var sw = navigator.serviceWorker;
+    var hadController = !!sw.controller;
+    var reg = null, updateReady = false, reloading = false, lastCheck = 0;
+
+    sw.register('sw.js').then(function (r) { reg = r; checkForUpdate(); }).catch(function () {});
+
+    sw.addEventListener('controllerchange', function () {
+      if (!hadController) { hadController = true; return; } // first install, nothing to swap
+      updateReady = true;
+      applyIfSafe();
+    });
+
+    function localVersion() {
+      return caches.keys().then(function (keys) { return keys[0] || null; });
+    }
+    function remoteVersion() {
+      return new Promise(function (resolve) {
+        var t = setTimeout(function () { resolve(null); }, 6000);
+        fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) {
+          return r.ok ? r.json() : null;
+        }).then(function (j) { clearTimeout(t); resolve(j && j.version); }, function () { clearTimeout(t); resolve(null); });
+      });
+    }
+    function checkForUpdate() {
+      if (!reg || updateReady || navigator.onLine === false) return;
+      if (Date.now() - lastCheck < 60000) return;
+      lastCheck = Date.now();
+      Promise.all([localVersion(), remoteVersion()]).then(function (v) {
+        if (v[0] && v[1] && v[0] !== v[1]) reg.update().catch(function () {});
+      });
+    }
+    function applyIfSafe(hidden) {
+      if (!updateReady || reloading) return;
+      var busy = $('#busy');
+      if (!busy.hidden) return; // a photo page is being made
+      if (hidden) { reloading = true; saveNow().then(function () { location.reload(); }); return; }
+      if (!home.hidden && studio.hidden) {
+        reloading = true;
+        busy.querySelector('p').textContent = 'New things are here!';
+        busy.hidden = false;
+        snd('magic');
+        setTimeout(function () { location.reload(); }, 1200);
+      }
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') checkForUpdate();
+      else applyIfSafe(true);
+    });
+    window.addEventListener('online', checkForUpdate);
+    window.__applyUpdateIfReady = applyIfSafe;
   }
 
   // Exposed for automated checks.

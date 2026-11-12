@@ -12,7 +12,7 @@ An ad-free, upsell-free coloring app for iPad. Built as an installable web app (
 - **Stamps**: tap the stamp tool to pick a size, a shape in the current colour (star, heart, flower, dot) or one of 74 emoji.
 - **11 curated colours** plus a **rainbow** colour that works with every tool (the bucket fills a rainbow gradient).
   The dotted swatch under the rainbow opens **66 more colours**: 11 hues in 5 shades, skin tones and greys.
-- Tap the tool you're holding to change its size (or stamp shape). Undo (8 steps). Hold the bin (under the colours) for about a second to start over, so a stray tap can't wipe a picture.
+- Tap the tool you're holding to change its size (or stamp shape). Undo (30 steps) and redo. Hold the bin (under the colours) for about a second to start over, so a stray tap can't wipe a picture.
 - Every page **saves automatically** on the device, and the gallery shows progress.
 - The yellow camera button opens the iPad share sheet, so the picture can be saved to Photos.
 - **Apple Pencil**: pressure-sensitive pencil and crayon. Once the Pencil is used, finger and palm touches on the page are ignored.
@@ -39,7 +39,12 @@ On the iPad, open it in Safari, then Share > Add to Home Screen. The first visit
 for offline use. Drawings stay on the iPad.
 
 To publish changes: bump `VERSION` in `sw.js`, run `tools/build-web.sh`, then deploy `dist/` to the
-Netlify project. iPads pick up the new version in the background and show it on the next launch.
+Netlify project. The build writes `version.json` from that `VERSION`. Each time the app opens or comes back
+to the front it asks the server for `version.json`; if the server has a newer version it downloads it in the
+background and switches over when it won't interrupt anything: straight away on the home screen ("New things
+are here!"), otherwise when she goes back home or the app is put away (the drawing is saved first). Offline,
+or if the server doesn't answer within 6 seconds, it just keeps using the copy it has. The native app is
+not affected: it uses the files built into it.
 
 ## iPad app
 
