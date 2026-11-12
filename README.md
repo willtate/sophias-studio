@@ -30,11 +30,32 @@ proper full-screen home-screen app it must be served over **HTTPS**: any static 
 
 When you ship changes, bump `VERSION` in `sw.js` so installed copies update.
 
-## Native app later
+## iPad app
 
-Xcode is not installed on this Mac yet. To publish it as a native app (or install it with a free
-Apple ID), wrap this folder in a `WKWebView` app targeting iOS 15. The code avoids APIs newer than
-Safari 15 (no OffscreenCanvas, no `Array.at`, no `structuredClone`).
+`ios/SophiasStudio.xcodeproj` is a native iPad app (iPadOS 15 and later) that runs the same web code
+offline from inside the app. A build step copies `index.html`, `css/`, `js/` and `icons/` into the app,
+so edit the web files as usual and rebuild.
+
+To put it on an iPad:
+
+1. Open `ios/SophiasStudio.xcodeproj` in Xcode.
+2. Select the **SophiasStudio** target, then **Signing & Capabilities**, and pick your Team
+   (a free Apple ID works). If Xcode says the bundle ID is taken, change `local.sophia.studio` to
+   something of your own.
+3. Plug in the iPad (turn on Developer Mode on it when asked), choose it as the run destination and press Run.
+
+With a free Apple ID the app stops opening after 7 days and needs another Run from Xcode. A paid
+developer account gives a year and allows TestFlight.
+
+What the app adds over the web version: no Safari bars, no status bar, edge swipes need a second
+swipe so drawing near the edge doesn't leave the app, and the save button opens the iPad share sheet
+(Save Image goes to Photos). Drawings are kept in the app's own storage.
+
+Simulator build from the command line:
+
+```bash
+cd ios && xcodebuild -project SophiasStudio.xcodeproj -scheme SophiasStudio -destination 'platform=iOS Simulator,name=iPad (A16)' -derivedDataPath build build
+```
 
 ## Layout
 
@@ -48,6 +69,7 @@ Safari 15 (no OffscreenCanvas, no `Array.at`, no `structuredClone`).
 | `js/app.js` | Gallery, tools, input, undo, autosave, export |
 | `js/store.js` | IndexedDB storage for saved pictures |
 | `sw.js`, `manifest.webmanifest` | Offline cache and home-screen install |
+| `ios/` | Native iPad wrapper: Swift `WKWebView` app that serves the web files from the bundle at `studio://app/` |
 
 ## Improving it with the gauntlet loop
 

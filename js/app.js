@@ -121,12 +121,8 @@
     document.addEventListener(ev, function (e) { e.preventDefault(); });
   });
   document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-  var lastTouchEnd = 0;
-  document.addEventListener('touchend', function (e) {
-    var now = Date.now();
-    if (now - lastTouchEnd < 350) e.preventDefault();
-    lastTouchEnd = now;
-  }, { passive: false });
+  // Double-tap zoom is turned off with touch-action: manipulation in the CSS, so quick
+  // taps from tool to colour are never swallowed.
 
   // ---------- Gallery ----------
   // Home shows a shelf of groups (Animals, Space, ...); tapping one shows its pages.
@@ -420,8 +416,10 @@
     });
   }
 
+  var openedAt = 0;
   function openPage(p) {
     state.page = p;
+    openedAt = Date.now();
     galleryCat = p.category;
     undoStack.forEach(function (c) { c.width = c.height = 1; });
     undoStack = [];
@@ -481,6 +479,16 @@
     var x = c.getContext('2d');
     x.drawImage(paint, 0, 0);
     x.drawImage(lineCanvas, 0, 0);
+    var native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.studio;
+    if (native) {
+      // Inside the iPad app: hand the picture to the native share sheet (Save Image, AirDrop, Print...).
+      var r = document.getElementById('save').getBoundingClientRect();
+      native.postMessage({ type: 'share', image: c.toDataURL('image/png'),
+        rect: { x: r.left, y: r.top, w: r.width, h: r.height } });
+      c.width = c.height = 1;
+      flash();
+      return;
+    }
     c.toBlob(function (blob) {
       if (!blob) return;
       var name = 'my-' + (state.page ? state.page.id : 'picture') + '.png';
@@ -530,6 +538,8 @@
 
   function onDown(e) {
     if (active) return;
+    // The finger that opened the page can land on it a moment later; don't let it leave a mark.
+    if (Date.now() - openedAt < 400) return;
     if (e.pointerType === 'pen') state.penSeen = true;
     // Once an Apple Pencil is used, ignore fingers/palm on the page.
     if (state.penSeen && e.pointerType === 'touch') return;

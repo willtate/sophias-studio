@@ -1,5 +1,5 @@
 /* Offline cache: the whole app works with no network once installed. Bump VERSION on every release. */
-var VERSION = 'v4';
+var VERSION = 'v5';
 var FILES = ['./', 'index.html', 'css/app.css', 'js/art-kit.js', 'js/pages/starter.js', 'js/pages/animals.js', 'js/pages/fairy.js', 'js/pages/vehicles.js', 'js/pages/robots.js', 'js/pages/space.js', 'js/pages/monsters.js', 'js/pages/sea.js', 'js/pages/garden.js', 'js/pages/treats.js', 'js/fill.js', 'js/store.js', 'js/app.js',
   'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', function (e) {
