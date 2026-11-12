@@ -7,7 +7,13 @@ An ad-free, upsell-free coloring app for iPad. Built as an installable web app (
 
 - **54 coloring pages in 9 groups**: Animals, Fairy Tales, Vehicles, Robots, Space, Silly Monsters, Under the Sea,
   Garden & Bugs, Yummy Treats. Plus a blank **Draw** page for free drawing.
-- **Tools**: pencil, crayon, marker, spray paint, paint bucket, stamps, eraser.
+- **Letters & Words**: trace-the-letter pages for A to Z (capital and small letter, numbered green start dots and
+  arrows for stroke order). Each letter is said aloud when it's traced; finishing both says "A is for apple" and
+  pops a matching sticker. The first page traces her name (set `NAME` in `js/pages/letters.js`).
+- **Scratch Art**: four black pages (rainbow, galaxy, gold, candy) where every pen scratches away the black.
+- **Talking stickers**: stickers show their word underneath ("cat") and say it; tap the word to hear it again.
+  The sticker picker has a ✍️ name sticker for signing pictures, and a 🐱 cat button to turn the words off.
+- **Tools**: pencil, crayon, marker, glitter, neon, spray paint, paint bucket, stamps, stickers, letters, eraser.
 - **Paint bucket** fills the whole shape between the outlines, even over crayon already in it (on the blank page it fills by colour instead).
 - **Stamps**: tap the stamp tool to pick a size, a shape in the current colour (star, heart, flower, dot) or one of 74 emoji.
 - **11 curated colours** plus a **rainbow** colour that works with every tool (the bucket fills a rainbow gradient).

@@ -44,6 +44,24 @@
     '🎈', '🎀', '👑', '💎', '🚀', '🚗', '🚂', '✈️', '⚽', '🎵'
   ];
 
+  // Talking stickers: the word for each sticker, shown underneath and read aloud.
+  var STICKER_WORDS = {
+    '🦄': 'unicorn', '🐶': 'dog', '🐱': 'cat', '🐰': 'bunny', '🦊': 'fox', '🐻': 'bear', '🐼': 'panda', '🐨': 'koala',
+    '🐯': 'tiger', '🦁': 'lion', '🐸': 'frog', '🐵': 'monkey', '🐧': 'penguin', '🐤': 'chick', '🦋': 'butterfly', '🐞': 'ladybug',
+    '🐝': 'bee', '🐢': 'turtle', '🐬': 'dolphin', '🐳': 'whale', '🐙': 'octopus', '🦀': 'crab', '🐠': 'fish', '🦕': 'dinosaur',
+    '🌈': 'rainbow', '⭐': 'star', '🌟': 'star', '✨': 'sparkle', '☀️': 'sun', '🌙': 'moon', '☁️': 'cloud', '❄️': 'snow',
+    '🌸': 'flower', '🌻': 'sunflower', '🌷': 'tulip', '🍀': 'clover', '🍄': 'mushroom', '🌵': 'cactus', '🍓': 'strawberry',
+    '🍒': 'cherry', '🍉': 'melon', '🍎': 'apple', '🍌': 'banana', '🍩': 'donut', '🍪': 'cookie', '🧁': 'cupcake',
+    '🍭': 'lollipop', '🍦': 'ice cream', '🍕': 'pizza', '🎂': 'cake', '😀': 'happy', '😍': 'love', '🥰': 'hug', '😎': 'cool',
+    '🤩': 'wow', '😜': 'silly', '🥳': 'party', '😴': 'sleepy', '❤️': 'red', '🧡': 'orange', '💛': 'yellow', '💚': 'green',
+    '💙': 'blue', '💜': 'purple', '🎈': 'balloon', '🎀': 'bow', '👑': 'crown', '💎': 'gem', '🚀': 'rocket', '🚗': 'car',
+    '🚂': 'train', '✈️': 'plane', '⚽': 'ball', '🎵': 'music'
+  };
+  var CHILD_NAME = (window.Art && Art.childName) || 'Me';
+  var NAME_STICKER = 'name';
+  var stickerWords = true;
+  try { stickerWords = localStorage.getItem('studio-sticker-words') !== 'off'; } catch (e) {}
+
   // "More colours": 11 hues in 5 shades, then skin tones and greys.
   var MORE_COLORS = (function () {
     var hues = [2, 26, 46, 88, 130, 170, 200, 222, 255, 285, 330];
@@ -199,7 +217,7 @@
     var b = document.createElement('button');
     b.className = 'card';
     b.setAttribute('aria-label', p.name);
-    b.innerHTML = '<div class="thumb"><img class="saved" alt=""><img class="art" alt="" src="' + p.svgUrl + '"></div>';
+    b.innerHTML = '<div class="thumb"><img class="saved" alt=""><img class="art" alt="" src="' + (p.thumbUrl || p.svgUrl) + '"></div>';
     b.addEventListener('click', function () { openPage(p); });
     ArtStore.get(p.id).then(function (blob) {
       if (blob) {
@@ -208,6 +226,7 @@
         thumbUrls.push(u);
         im.src = u;
         im.style.visibility = 'visible';
+        if (p.thumbUrl) b.querySelector('.art').style.visibility = 'hidden';
       }
     });
     return b;
@@ -255,7 +274,7 @@
       if (rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114 > 170) b.classList.add('light');
       b.setAttribute('aria-label', c.name);
       var covers = c.pages.slice(0, 3).map(function (p, i) {
-        return '<img class="c' + i + '" alt="" src="' + p.svgUrl + '">';
+        return '<img class="c' + i + '" alt="" src="' + (p.thumbUrl || p.svgUrl) + '">';
       }).join('');
       b.innerHTML = '<div class="cover">' + covers + '</div><span>' + c.name + '</span>';
       b.addEventListener('click', function () { snd('tap'); galleryCat = c.id; buildGallery(); });
@@ -457,6 +476,32 @@
   function openStickerPicker() {
     var box = document.createElement('div');
     box.className = 'stamp-picker';
+    var top = document.createElement('div');
+    top.className = 'picker-top';
+    var nameBtn = document.createElement('button');
+    nameBtn.className = 'pick name-pick' + (state.sticker === NAME_STICKER ? ' active' : '');
+    nameBtn.innerHTML = '<span class="emoji">✍️</span> ' + CHILD_NAME;
+    nameBtn.addEventListener('click', function () {
+      state.sticker = NAME_STICKER;
+      renderStickerIcon();
+      closePopover();
+      commitFloater();
+      placeSticker(W * 0.72, H * 0.86);
+    });
+    var wordsBtn = document.createElement('button');
+    wordsBtn.className = 'pick words-pick' + (stickerWords ? ' active' : '');
+    wordsBtn.setAttribute('aria-label', 'Show words under stickers');
+    wordsBtn.innerHTML = '<span class="emoji">🐱</span><b>cat</b>';
+    wordsBtn.addEventListener('click', function () {
+      stickerWords = !stickerWords;
+      try { localStorage.setItem('studio-sticker-words', stickerWords ? 'on' : 'off'); } catch (e) {}
+      wordsBtn.classList.toggle('active', stickerWords);
+      snd('tap');
+      if (stickerWords) say('words on');
+    });
+    top.appendChild(nameBtn);
+    top.appendChild(wordsBtn);
+    box.appendChild(top);
     box.appendChild(emojiGrid(function (em) { return state.sticker === em; }, function (em) {
       state.sticker = em;
       renderStickerIcon();
@@ -497,7 +542,7 @@
     }
   }
   function renderStickerIcon() {
-    document.querySelector('.tool[data-tool="sticker"] .sticker-face').textContent = state.sticker;
+    document.querySelector('.tool[data-tool="sticker"] .sticker-face').textContent = state.sticker === NAME_STICKER ? '✍️' : state.sticker;
   }
 
   function setColor(c) {
@@ -598,7 +643,11 @@
   }
   function mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
   function rgbStr(c) { return 'rgb(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ')'; }
-  function strokeColor() {
+  // On scratch pages every pen shows the hidden picture: a pattern lined up with the page.
+  // ctxName says which canvas the colour is for ('s' stroke layer, 'p' the page).
+  var scratchPat = null;
+  function strokeColor(ctxName) {
+    if (scratchPat) return scratchPat[ctxName || 's'];
     if (state.color === 'rainbow') return 'hsl(' + Math.round(state.hue) + ',80%,58%)';
     return state.color;
   }
@@ -678,9 +727,10 @@
   }
 
   // ---------- Page open/close ----------
+  function paperColor() { return state.page && state.page.scratch ? ScratchArt.COAT : '#FFFFFF'; }
   function clearPaint() {
     resetCtx();
-    pctx.fillStyle = '#FFFFFF';
+    pctx.fillStyle = paperColor();
     pctx.fillRect(0, 0, W, H);
   }
 
@@ -698,6 +748,17 @@
     snd('page');
     state.page = p;
     openedAt = Date.now();
+    scratchPat = null;
+    if (p.scratch && window.ScratchArt) {
+      var hidden = ScratchArt.make(p.scratch, W, H);
+      scratchPat = { s: sctx.createPattern(hidden, 'no-repeat'), p: pctx.createPattern(hidden, 'no-repeat') };
+    }
+    studio.classList.toggle('scratch', !!p.scratch);
+    studio.classList.toggle('trace', !!p.trace);
+    var hiddenTools = p.scratch ? ['glitter', 'neon', 'bucket', 'text'] : p.trace ? ['bucket'] : [];
+    if (hiddenTools.indexOf(state.tool) >= 0) setTool('crayon');
+    trace = p.trace ? { done: [], gdone: [], ready: false } : null;
+    if (p.trace) say(spoken(p.trace.intro));
     galleryCat = p.category;
     clearHistory();
     log = { base: false, actions: [] };
@@ -726,10 +787,13 @@
         ArtStore.put(p.id + '::base', blob);
       }
       refreshButtons();
-      if (!blob) return;
+      if (!blob) { if (trace) trace.ready = true; return; }
       var url = URL.createObjectURL(blob);
       loadImage(url).then(function (im) {
-        if (state.page === p) { resetCtx(); pctx.drawImage(im, 0, 0, W, H); }
+        if (state.page === p) {
+          resetCtx(); pctx.drawImage(im, 0, 0, W, H);
+          if (trace) { checkTrace(false); trace.ready = true; }
+        }
         URL.revokeObjectURL(url);
       });
     });
@@ -983,6 +1047,81 @@
     endStroke();
     active = null;
     scheduleSave();
+    if (trace && trace.ready) checkTrace(true);
+  }
+
+  // ---------- Tracing letters ----------
+  // A letter counts as traced when most of its dots have colour on or right next to them.
+  var trace = null;
+  function spoken(t) {
+    return t.replace(/\{(.)\}/g, function (m, ch) { return LETTER_NAMES[ch.toUpperCase()] || ch; });
+  }
+  function checkTrace(celebrate) {
+    var tr = state.page && state.page.trace;
+    if (!tr || !trace) return;
+    var x0 = W, y0 = H, x1 = 0, y1 = 0, R = 14;
+    tr.items.forEach(function (it) {
+      it.pts.forEach(function (q) {
+        x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]);
+      });
+    });
+    x0 = Math.max(0, Math.floor(x0 - R)); y0 = Math.max(0, Math.floor(y0 - R));
+    x1 = Math.min(W - 1, Math.ceil(x1 + R)); y1 = Math.min(H - 1, Math.ceil(y1 + R));
+    var bw = x1 - x0 + 1, img = pctx.getImageData(x0, y0, bw, y1 - y0 + 1).data;
+    var paper = hexToRgb(paperColor()), offs = [[0, 0], [R, 0], [-R, 0], [0, R], [0, -R], [10, 10], [-10, 10], [10, -10], [-10, -10]];
+    function inked(px, py) {
+      for (var k = 0; k < offs.length; k++) {
+        var xx = Math.round(px + offs[k][0]) - x0, yy = Math.round(py + offs[k][1]) - y0;
+        if (xx < 0 || yy < 0 || xx >= bw || yy > y1 - y0) continue;
+        var i = (yy * bw + xx) * 4;
+        if (Math.abs(img[i] - paper[0]) + Math.abs(img[i + 1] - paper[1]) + Math.abs(img[i + 2] - paper[2]) > 60) return true;
+      }
+      return false;
+    }
+    var newly = [];
+    tr.items.forEach(function (it, n) {
+      if (trace.done[n]) return;
+      var hit = 0;
+      it.pts.forEach(function (q) { if (inked(q[0], q[1])) hit++; });
+      if (hit / it.pts.length >= 0.75) { trace.done[n] = true; newly.push(it); }
+    });
+    var groups = [];
+    tr.groups.forEach(function (g, n) {
+      if (trace.gdone[n]) return;
+      if (g.items.every(function (i) { return trace.done[i]; })) { trace.gdone[n] = true; groups.push(g); }
+    });
+    if (!celebrate) return;
+    newly.forEach(function (it) { burst(it.cx, it.cy, 5); });
+    if (newly.length) { snd('sparkle'); say(spoken('{' + newly[newly.length - 1].say + '}')); }
+    groups.forEach(function (g, gi) {
+      setTimeout(function () {
+        if (!state.page || state.page.trace !== tr) return;
+        snd('magic');
+        say(spoken(g.say));
+        burst(g.at[0], g.at[1], 9);
+        if (g.sticker) {
+          commitFloater();
+          floater = { kind: 'sticker', text: g.sticker, word: stickerWords ? g.word : '', x: g.at[0], y: g.at[1],
+            size: g.size || 180, rot: (rnd() - 0.5) * 0.3 };
+          makeFloaterEl();
+        }
+      }, 900 + gi * 1500);
+    });
+  }
+  // A little shower of sparkles over the page.
+  function burst(x, y, n) {
+    var k = board.clientWidth / W;
+    for (var i = 0; i < n; i++) {
+      var s = document.createElement('span');
+      s.className = 'burst';
+      s.textContent = i % 3 === 0 ? '⭐' : '✨';
+      var a = (i / n) * 6.283 + Math.random() * 0.6, d = 60 + Math.random() * 80;
+      s.style.left = (x * k) + 'px'; s.style.top = (y * k) + 'px';
+      s.style.setProperty('--dx', (Math.cos(a) * d) + 'px');
+      s.style.setProperty('--dy', (Math.sin(a) * d) + 'px');
+      objLayer.appendChild(s);
+      setTimeout(function (el) { return function () { el.remove(); }; }(s), 1100);
+    }
   }
 
   function advanceHue(dist) { state.hue = (state.hue + dist * 0.25) % 360; }
@@ -1019,7 +1158,7 @@
     }
     active.endX = x1; active.endY = y1;
     active.mx = active.x; active.my = active.y;
-    var col = strokeColor();
+    var col = strokeColor('s');
     var n = mirrorCount();
     for (var i = 0; i < n; i++) {
       var p0 = mp(i, x0, y0), pc = mp(i, cx, cy), p1 = mp(i, x1, y1);
@@ -1107,7 +1246,7 @@
   function eraseTo(x, y, first) {
     resetCtx();
     var s = size();
-    pctx.strokeStyle = '#FFFFFF';
+    pctx.strokeStyle = paperColor();
     pctx.lineWidth = s;
     pctx.lineCap = 'round'; pctx.lineJoin = 'round';
     for (var i = 0, n = mirrorCount(); i < n; i++) {
@@ -1124,7 +1263,7 @@
     var rad = size();
     var n = Math.round(rad * 1.6 * (amount || 1));
     resetCtx();
-    pctx.fillStyle = strokeColor();
+    pctx.fillStyle = strokeColor('p');
     var pts = mirrorsOf(x, y);
     for (var i = 0; i < n; i++) {
       var a = rnd() * Math.PI * 2;
@@ -1147,7 +1286,7 @@
   function stampAt(x, y) {
     active.lastStampX = x; active.lastStampY = y;
     var rot = (rnd() - 0.5) * 0.5, jitter = 0.85 + rnd() * 0.3, ej = 0.9 + rnd() * 0.2;
-    var col = strokeColor();
+    var col = strokeColor('p');
     var pts = mirrorsOf(x, y);
     var sz = size();
     for (var k = 0; k < pts.length; k++) {
@@ -1166,17 +1305,20 @@
         var sc = sz / 2 / 20 * jitter;
         pctx.scale(sc, sc);
         pctx.translate(-20, -20);
+        // Keep the hidden scratch picture lined up with the page, whatever the stamp's turn and size.
+        if (scratchPat && col.setTransform && pctx.getTransform) col.setTransform(pctx.getTransform().inverse());
         if (state.stamp === 'flower') {
           [[20, 9], [31, 17], [27, 30], [13, 30], [9, 17]].forEach(function (c) {
             pctx.beginPath(); pctx.arc(c[0], c[1], 7, 0, Math.PI * 2); pctx.fill();
           });
-          pctx.fillStyle = state.color === '#F9D648' ? '#F7932E' : '#F9D648';
+          if (!scratchPat) pctx.fillStyle = state.color === '#F9D648' ? '#F7932E' : '#F9D648';
           pctx.beginPath(); pctx.arc(20, 20, 6, 0, Math.PI * 2); pctx.fill();
         } else {
           pctx.fill(new Path2D(STAMP_PATHS[state.stamp]));
         }
       }
       pctx.restore();
+      if (scratchPat && col.setTransform && window.DOMMatrix) col.setTransform(new DOMMatrix());
       dirty(px - sz, py - sz, sz * 2, sz * 2);
     }
     if (state.color === 'rainbow') advanceHue(40);
@@ -1231,9 +1373,20 @@
   var gesture = null;
 
   function placeSticker(x, y) {
-    floater = { kind: 'sticker', text: state.sticker, x: x, y: y, size: 190, rot: (rnd() - 0.5) * 0.3 };
+    if (state.sticker === NAME_STICKER) {
+      // Her name, to sign a picture with.
+      floater = { kind: 'text', text: CHILD_NAME, x: x, y: y, size: 110, rot: (rnd() - 0.5) * 0.15,
+        color: state.color === '#FFFFFF' ? 'rainbow' : state.color, hue: state.hue, style: 'solid' };
+      makeFloaterEl();
+      snd('sticker');
+      say(CHILD_NAME);
+      return;
+    }
+    var word = stickerWords ? STICKER_WORDS[state.sticker] || '' : '';
+    floater = { kind: 'sticker', text: state.sticker, word: word, x: x, y: y, size: 190, rot: (rnd() - 0.5) * 0.3 };
     makeFloaterEl();
     snd('sticker');
+    if (word) say(word);
   }
   function startText(x, y) {
     floater = { kind: 'text', text: '', x: x, y: y, size: TOOLS.text.sizes[state.sizes.text], rot: 0,
@@ -1248,6 +1401,18 @@
     el.innerHTML = '<span class="content"></span>' +
       '<button class="obj-btn obj-x" aria-label="Remove"><svg viewBox="0 0 48 48"><path d="M14 14 L34 34 M34 14 L14 34" stroke="#34405A" stroke-width="6" stroke-linecap="round"/></svg></button>' +
       '<button class="obj-btn obj-ok" aria-label="Stick it down"><svg viewBox="0 0 48 48"><path d="M10 25 L20 35 L39 13" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+    if (floater.kind === 'sticker' && floater.word) {
+      var wd = document.createElement('button');
+      wd.className = 'obj-word';
+      wd.textContent = floater.word;
+      wd.setAttribute('aria-label', 'Say ' + floater.word);
+      wd.addEventListener('pointerdown', function (e) {
+        e.stopPropagation(); e.preventDefault();
+        pressAnim(wd);
+        say(floater ? floater.word : wd.textContent);
+      });
+      el.appendChild(wd);
+    }
     el.querySelector('.obj-x').addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); removeFloater(); });
     el.querySelector('.obj-ok').addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); commitFloater(); });
     objLayer.appendChild(el);
@@ -1264,6 +1429,8 @@
     if (floater.kind === 'sticker') {
       c.className = 'content emoji';
       c.textContent = floater.text;
+      var wd = el.querySelector('.obj-word');
+      if (wd) wd.style.fontSize = (floater.size * 0.26 * k) + 'px';
       return;
     }
     c.className = 'content' + (floater.style === 'hollow' ? ' hollow' : '') + (floater.text ? '' : ' empty');
@@ -1298,6 +1465,7 @@
     if (f.kind === 'text' && !f.text.trim()) return;
     var o = { kind: f.kind, text: f.text, x: r1(f.x), y: r1(f.y), size: r1(f.size), rot: Math.round(f.rot * 1000) / 1000,
       color: f.color, hue: r1(f.hue || 0), style: f.style };
+    if (f.word) o.word = f.word;
     var before = snapshot();
     var rect = drawObject(pctx, o);
     var r = clipRect(rect);
@@ -1320,6 +1488,19 @@
       ctx.font = Math.round(o.size) + 'px ' + EMOJI_FONT;
       w = ctx.measureText(o.text).width;
       ctx.fillText(o.text, 0, o.size * 0.05);
+      if (o.word) {
+        // The sticker's word underneath, in a little white label.
+        var ws = Math.round(o.size * 0.26);
+        ctx.font = '800 ' + ws + 'px ' + FONT;
+        var tw = ctx.measureText(o.word).width, py = o.size * 0.62 + ws * 0.55;
+        ctx.fillStyle = 'rgba(255,255,255,.92)';
+        roundRect(ctx, -tw / 2 - ws * 0.35, py - ws * 0.68, tw + ws * 0.7, ws * 1.36, ws * 0.45);
+        ctx.fill();
+        ctx.fillStyle = '#34405A';
+        ctx.fillText(o.word, 0, py);
+        w = Math.max(w, tw + ws);
+        h = (py + ws) * 2;
+      }
     } else {
       ctx.font = '800 ' + Math.round(o.size) + 'px ' + FONT;
       ctx.lineJoin = 'round';
@@ -1348,6 +1529,14 @@
     ctx.restore();
     var rad = Math.hypot(w, h) / 2 + o.size * 0.15;
     return { x0: o.x - rad, y0: o.y - rad, x1: o.x + rad, y1: o.y + rad };
+  }
+
+  function roundRect(ctx, x, y, w, h, rr) {
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y); ctx.lineTo(x + w - rr, y); ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+    ctx.lineTo(x + w, y + h - rr); ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+    ctx.lineTo(x + rr, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+    ctx.lineTo(x, y + rr); ctx.quadraticCurveTo(x, y, x + rr, y); ctx.closePath();
   }
 
   function floaterHit(e) {

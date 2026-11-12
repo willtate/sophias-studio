@@ -92,6 +92,7 @@
     var p = { id: id, name: name, category: catId, art: art };
     cat.pages.push(p);
     pages.push(p);
+    return p;
   }
 
   function svgFor(p) {
@@ -105,6 +106,8 @@
     pages.forEach(function (p) {
       p.svg = svgFor(p);
       p.svgUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(p.svg);
+      // Optional gallery picture that differs from the page's line art (scratch pages).
+      if (p.thumb) p.thumbUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(p.thumb());
     });
     var blank = { id: 'blank', name: 'Blank page', category: null, art: function () { return ''; } };
     blank.svg = svgFor(blank);
@@ -125,6 +128,8 @@
   };
 
   // Categories, in the order they appear in the gallery.
+  category('letters', 'Letters & Words', '#EF6F6C');
+  category('scratch', 'Scratch Art', '#34405A');
   category('animals', 'Animals', '#F7932E');
   category('fairy', 'Fairy Tales', '#F28CB8');
   category('vehicles', 'Vehicles', '#E8473B');
