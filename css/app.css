@@ -89,8 +89,8 @@ img { -webkit-user-drag: none; }
   height: 100%;
   display: grid;
   grid-template-columns: 96px 1fr 88px;
-  grid-template-rows: 72px 1fr;
-  grid-template-areas: "cl stage cr" "tools stage palette";
+  grid-template-rows: 72px minmax(0, 1fr);
+  grid-template-areas: "cl top cr" "tools stage palette";
   padding: calc(8px + var(--safe-t)) var(--safe-r) calc(8px + var(--safe-b)) var(--safe-l);
   column-gap: 8px;
 }
@@ -108,7 +108,6 @@ img { -webkit-user-drag: none; }
 .round:active { transform: scale(.9); }
 .round:disabled { opacity: .3; box-shadow: none; }
 .round.save { background: #F9D648; }
-.round.undo { margin: 14px 0 0 10px; }
 .round.clear { width: 46px; height: 46px; margin-top: 18px; background: transparent; box-shadow: none; }
 .round.clear svg { width: 26px; height: 26px; fill: var(--muted); }
 .round.clear .ring {
@@ -121,19 +120,19 @@ img { -webkit-user-drag: none; }
 /* Tools: flat icons; the held tool slides out toward the page */
 .tools {
   grid-area: tools; display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
-  gap: 6px; padding-left: 6px; overflow: visible;
+  gap: 4px; padding-left: 6px; overflow: visible;
 }
 .tool {
-  position: relative; width: 78px; height: 72px; flex: none; border-radius: 0 36px 36px 0;
+  position: relative; width: 78px; height: min(64px, calc((100vh - 120px) / 11 - 4px)); flex: none; border-radius: 0 36px 36px 0;
   display: flex; align-items: center; justify-content: center;
   transition: transform .2s cubic-bezier(.3,1.5,.6,1), background .2s;
 }
-.tool svg { width: 58px; height: 58px; overflow: visible; }
+.tool svg { width: 50px; height: 50px; max-height: 88%; overflow: visible; }
 .tool .tipc, .tool .fillc { fill: var(--current); }
 .tool.active { transform: translateX(10px); background: #fff; box-shadow: 0 2px 10px rgba(52,64,90,.08); }
 .tool.bounce svg { animation: bounce .3s; }
 @keyframes bounce { 40% { transform: scale(1.15) rotate(-6deg); } }
-.stamp-shape svg { width: 48px; height: 48px; stroke: var(--ink); stroke-width: 1.6; stroke-linejoin: round; }
+.stamp-shape svg { width: 42px; height: 42px; stroke: var(--ink); stroke-width: 1.6; stroke-linejoin: round; }
 
 /* size indicator: three dots that appear only on the held tool */
 .size {
@@ -147,7 +146,7 @@ img { -webkit-user-drag: none; }
 .size i:nth-child(3) { width: 12px; height: 12px; }
 .size[data-size="0"] i:nth-child(1), .size[data-size="1"] i:nth-child(2), .size[data-size="2"] i:nth-child(3) { background: var(--ink); }
 
-.stage { grid-area: stage; grid-row: 1 / span 2; position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; }
+.stage { grid-area: stage; position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; }
 .board { position: relative; background: #fff; border-radius: 22px; overflow: hidden; touch-action: none; }
 .board canvas, .board img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
 .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
@@ -171,13 +170,15 @@ img { -webkit-user-drag: none; }
   #studio {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 60px 90px 1fr 80px;
-    grid-template-areas: "cl cr" "tools tools" "stage stage" "palette palette";
+    grid-template-columns: 80px 1fr 80px;
+    grid-template-areas: "cl top cr" "tools tools tools" "stage stage stage" "palette palette palette";
   }
   .corner.left { justify-content: flex-start; padding-left: 12px; }
   .corner.right { justify-content: flex-end; padding-right: 12px; }
   .stage { grid-row: auto; padding: 0 12px; }
   .tools { flex-direction: row; justify-content: center; align-items: flex-start; padding: 0; }
-  .tool { width: 72px; height: 80px; border-radius: 0 0 36px 36px; }
+  .tool { width: min(72px, calc((100vw - 24px) / 11)); height: 80px; border-radius: 0 0 36px 36px; }
+  .tool svg { width: min(50px, calc((100vw - 24px) / 11 - 10px)); }
   .tool.active { transform: translateY(6px); }
   .size { right: auto; top: auto; bottom: 4px; left: 50%; transform: translateX(-50%); flex-direction: row; }
   #swatches { flex-direction: row; flex-wrap: wrap; justify-content: center; }
@@ -229,4 +230,111 @@ img { -webkit-user-drag: none; }
 @media (orientation: portrait) {
   .color-grid { grid-template-columns: repeat(11, 40px); gap: 6px; }
   .swatch.mini { width: 40px; height: 40px; }
+}
+
+/* Top bar: undo / redo on the left, mirror and replay on the right */
+.topbar { grid-area: top; display: flex; align-items: center; gap: 12px; padding: 0 6px; }
+.topbar .gap { flex: 1; }
+.round.small { width: 52px; height: 52px; }
+.round.small svg { width: 30px; height: 30px; }
+.round.mirror .w1, .round.mirror .w2 { fill: #E6E1D8; stroke: #34405A; stroke-width: 2; }
+.round.mirror[data-mode="1"], .round.mirror[data-mode="2"] { background: var(--ink); }
+.round.mirror[data-mode="1"] .w1, .round.mirror[data-mode="1"] .w2,
+.round.mirror[data-mode="2"] .w1, .round.mirror[data-mode="2"] .w2 { fill: var(--current); stroke: #fff; }
+.round.mirror[data-mode="1"] path[stroke-dasharray], .round.mirror[data-mode="2"] path[stroke-dasharray] { stroke: #fff; }
+.round.mirror .badge { position: absolute; right: -4px; top: -4px; min-width: 22px; height: 22px; border-radius: 11px; background: #F9D648; color: var(--ink); font-size: 13px; font-weight: 800; line-height: 22px; display: none; }
+.round.mirror[data-mode="1"] .badge, .round.mirror[data-mode="2"] .badge { display: block; }
+
+/* Hold-to-save ring */
+.round.save .ring { position: absolute; inset: -5px; border-radius: 50%; border: 5px solid var(--ink); opacity: 0; transform: scale(.6); pointer-events: none; }
+.round.save.holding .ring { opacity: 1; transform: scale(1); transition: transform .7s linear, opacity .15s; }
+.round.save.wiggle { animation: wiggle .4s; }
+@keyframes wiggle { 25% { transform: rotate(-10deg); } 75% { transform: rotate(10deg); } }
+
+/* Mirror guide lines on the page */
+.guides { position: absolute; inset: 0; pointer-events: none; }
+.guides i { position: absolute; display: block; opacity: .35; }
+.guides .v { left: 50%; top: 0; bottom: 0; width: 0; border-left: 3px dashed var(--ink); transform: translateX(-1.5px); }
+.guides .h { top: 50%; left: 0; right: 0; height: 0; border-top: 3px dashed var(--ink); transform: translateY(-1.5px); display: none; }
+.guides.quad .h { display: block; }
+
+/* Movable stickers and words */
+.objects { position: absolute; inset: 0; pointer-events: none; }
+.floater { position: absolute; left: 0; top: 0; pointer-events: auto; touch-action: none; white-space: pre; line-height: 1;
+  font-weight: 800; font-family: ui-rounded, "SF Pro Rounded", -apple-system, "Helvetica Neue", sans-serif; }
+.floater .content { display: block; padding: .08em .12em; border-radius: 12px; outline: 3px dashed rgba(52,64,90,.45); outline-offset: 6px; }
+.floater .content.emoji { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; font-weight: 400; }
+.floater .content.hollow { color: #fff !important; -webkit-text-stroke: .07em #34405A; }
+.floater .content.empty::after { content: ""; display: inline-block; width: .08em; height: .9em; background: var(--ink); vertical-align: -.1em; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.floater .obj-btn { position: absolute; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(52,64,90,.25); font-size: 0; }
+.floater .obj-btn svg { width: 26px; height: 26px; }
+.floater .obj-ok { right: -30px; top: -30px; background: #6BBF4E; }
+.floater .obj-x { left: -30px; top: -30px; background: #fff; }
+
+/* Letters keyboard: ABC order, big keys */
+.kbd { position: fixed; z-index: 40; left: 50%; bottom: calc(10px + var(--safe-b)); transform: translateX(-50%);
+  width: min(860px, calc(100vw - 220px)); background: #fff; border-radius: 28px; padding: 12px;
+  box-shadow: 0 12px 40px rgba(52,64,90,.22); display: flex; flex-direction: column; gap: 8px; animation: kbdpop .2s cubic-bezier(.3,1.4,.6,1); }
+@keyframes kbdpop { from { transform: translateX(-50%) translateY(40px); opacity: 0; } }
+.kbd-keys { display: flex; flex-direction: column; gap: 8px; }
+.kbd-row { display: flex; gap: 8px; justify-content: center; }
+.key { flex: 1; min-width: 0; height: 58px; border-radius: 16px; background: #F4EFE6; font-size: 32px; font-weight: 800; color: var(--ink);
+  display: flex; align-items: center; justify-content: center; transition: transform .1s; }
+.key:active, .key.down { transform: scale(.9); background: #E9E2D6; }
+.key svg { width: 34px; height: 34px; }
+.key.wide { flex: 1.3; font-size: 22px; }
+.key.space { flex: 3; }
+.key.style b { font-size: 34px; color: var(--current); }
+.key.style b.hollow { color: #fff; -webkit-text-stroke: 2px #34405A; }
+.key.style.on { box-shadow: inset 0 0 0 3px var(--ink); background: #fff; }
+.key.done { background: #6BBF4E; flex: 1.3; }
+.key.vowel { color: #E8473B; }
+@media (orientation: portrait) { .kbd { width: calc(100vw - 24px); } .key { height: 64px; } }
+
+/* Replay */
+.replay-bar { position: fixed; z-index: 45; left: 50%; bottom: calc(24px + var(--safe-b)); transform: translateX(-50%); }
+.replay-bar .round { width: 72px; height: 72px; background: var(--ink); }
+.replay-bar .round svg { fill: #fff; width: 34px; height: 34px; }
+#studio.replaying .tools, #studio.replaying .palette, #studio.replaying .topbar, #studio.replaying .corner { opacity: .25; pointer-events: none; }
+
+/* Size bubble: shows the new brush size for a moment */
+.size-bubble { position: fixed; z-index: 30; pointer-events: none; width: 130px; height: 130px; border-radius: 50%; background: #fff;
+  box-shadow: 0 6px 24px rgba(52,64,90,.2); display: flex; align-items: center; justify-content: center; transition: opacity .3s; }
+.size-bubble i { display: block; border-radius: 50%; background: var(--current); }
+.size-bubble.fade { opacity: 0; }
+.size-bubble .aa { font-size: 40px; font-weight: 800; color: var(--current); line-height: 1; }
+
+/* Sticker tool icon shows the chosen sticker */
+.tool[data-tool="sticker"] { }
+.sticker-face { position: absolute; left: 50%; top: 50%; transform: translate(-58%, -56%); font-size: 26px; line-height: 1;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; pointer-events: none; }
+
+/* My Pictures */
+.shelf-card.mine { background: #fff; }
+.shelf-card.mine span { color: var(--ink); text-shadow: none; }
+.shelf-card.mine .cover .stack { position: absolute; inset: 6% 8%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.shelf-card.mine .cover .stack i { border-radius: 12px; display: block; }
+.card.make { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border: 4px dashed #E6E1D8; background: #fff; min-height: 200px; }
+.card.make svg { width: 84px; height: 84px; }
+.card.make span { font-size: 22px; font-weight: 800; }
+.card .del { position: absolute; right: 16px; top: 16px; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.92);
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(52,64,90,.2); z-index: 2; }
+.card .del svg { width: 24px; height: 24px; fill: var(--muted); }
+.card .del .ring { position: absolute; inset: -3px; border-radius: 50%; border: 4px solid #E8473B; opacity: 0; transform: scale(.5); }
+.card .del.holding .ring { opacity: 1; transform: scale(1); transition: transform 1.2s linear, opacity .2s; }
+.card .del.holding svg { fill: #E8473B; }
+.card { position: relative; }
+
+.busy { position: fixed; inset: 0; z-index: 60; background: rgba(251,247,240,.92); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+.busy p { font-size: 28px; font-weight: 800; margin: 0; }
+.spinner { width: 72px; height: 72px; border-radius: 50%; border: 10px solid #E6E1D8; border-top-color: #F7932E; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.grid > div > .card { width: 100%; display: block; }
+
+/* Short landscape screens (iPad mini): shrink the colour column so everything fits */
+@media (orientation: landscape) {
+  #swatches .swatch { width: min(44px, calc((100vh - 230px) / 13 - 8px)); height: min(44px, calc((100vh - 230px) / 13 - 8px)); }
+  .round.clear { margin-top: min(18px, max(4px, calc(100vh - 730px))); }
 }

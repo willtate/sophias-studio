@@ -189,6 +189,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Sophia's Studio";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.kids-games";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Saves your pictures to Photos.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Takes a photo to turn into a coloring page.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -214,6 +215,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Sophia's Studio";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.kids-games";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Saves your pictures to Photos.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Takes a photo to turn into a coloring page.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

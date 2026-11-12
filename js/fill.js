@@ -80,15 +80,19 @@
       for (var g = 0; g < grow.length; g++) filled[grow[g]] = 1;
     }
 
-    var n = W * H, any = false;
+    // Returns the changed area {x, y, w, h}, or null if nothing was filled.
+    var n = W * H, any = false, x0 = W, y0 = H, x1 = -1, y1 = -1;
     for (var j = 0; j < n; j++) {
       if (!filled[j]) continue;
       any = true;
-      var c = colorFn(j % W, (j / W) | 0);
+      var px = j % W, py = (j / W) | 0;
+      if (px < x0) x0 = px; if (px > x1) x1 = px;
+      if (py < y0) y0 = py; if (py > y1) y1 = py;
+      var c = colorFn(px, py);
       var o = j * 4;
       d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
     }
-    return any;
+    return any ? { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 } : null;
   }
 
   function buildLineMask(lineCtx, W, H) {
