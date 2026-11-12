@@ -6,9 +6,13 @@
   // lineMask: Uint8Array, 1 where the line art is drawn.
   // img: ImageData of the paint layer (modified in place).
   // colorFn(x, y) -> [r, g, b]
-  function floodFill(img, lineMask, sx, sy, colorFn, tolerance) {
+  // linesOnly: the region is the whole shape between the outlines, whatever paint is
+  // already in it (what a child expects on a coloring page). Otherwise the region is
+  // bounded by paint of a different colour too (blank page).
+  function floodFill(img, lineMask, sx, sy, colorFn, tolerance, linesOnly) {
     var W = img.width, H = img.height, d = img.data;
     tolerance = tolerance == null ? 48 : tolerance;
+    if (linesOnly) tolerance = 1e9;
     sx = Math.round(sx); sy = Math.round(sy);
     if (sx < 0 || sy < 0 || sx >= W || sy >= H) return false;
 
@@ -59,7 +63,7 @@
 
     // Grow 2px into line pixels and soft edges so no white halo is left
     // next to the outlines or crayon edges.
-    for (var pass = 0; pass < 2; pass++) {
+    for (var pass = 0; pass < (linesOnly ? 3 : 2); pass++) {
       var grow = [];
       for (var yy = 1; yy < H - 1; yy++) {
         var row = yy * W;
@@ -69,7 +73,7 @@
           if (filled[q - 1] || filled[q + 1] || filled[q - W] || filled[q + W]) {
             if (lineMask[q]) { grow.push(q); continue; }
             var k = q * 4;
-            if (Math.abs(d[k] - tr) + Math.abs(d[k + 1] - tg) + Math.abs(d[k + 2] - tb) <= 200) grow.push(q);
+            if (!linesOnly && Math.abs(d[k] - tr) + Math.abs(d[k + 1] - tg) + Math.abs(d[k + 2] - tb) <= 200) grow.push(q);
           }
         }
       }

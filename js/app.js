@@ -25,10 +25,34 @@
     marker: { sizes: [20, 38, 64] },
     spray:  { sizes: [45, 75, 115] },
     bucket: { sizes: null },
-    stamp:  { sizes: null },
+    stamp:  { sizes: [70, 110, 160] },
     eraser: { sizes: [26, 54, 100] }
   };
   var STAMPS = ['star', 'heart', 'flower', 'dot'];
+
+  // Emoji stamps. All are Emoji 11 or older so they render on iPadOS 15.
+  var EMOJI = [
+    '🦄', '🐶', '🐱', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐸', '🐵', '🐧', '🐤', '🦋', '🐞',
+    '🐝', '🐢', '🐬', '🐳', '🐙', '🦀', '🐠', '🦕', '🌈', '⭐', '🌟', '✨', '☀️', '🌙', '☁️', '❄️',
+    '🌸', '🌻', '🌷', '🍀', '🍄', '🌵', '🍓', '🍒', '🍉', '🍎', '🍌', '🍩', '🍪', '🧁', '🍭', '🍦',
+    '🍕', '🎂', '😀', '😍', '🥰', '😎', '🤩', '😜', '🥳', '😴', '❤️', '🧡', '💛', '💚', '💙', '💜',
+    '🎈', '🎀', '👑', '💎', '🚀', '🚗', '🚂', '✈️', '⚽', '🎵'
+  ];
+
+  // "More colours": 11 hues in 5 shades, then skin tones and greys.
+  var MORE_COLORS = (function () {
+    var hues = [2, 26, 46, 88, 130, 170, 200, 222, 255, 285, 330];
+    var shades = [[90, 86], [80, 72], [72, 58], [70, 44], [60, 30]];
+    var out = [];
+    shades.forEach(function (sl) {
+      hues.forEach(function (h) {
+        var rgb = hslToRgb(h, sl[0], sl[1]);
+        out.push('#' + rgb.map(function (v) { return (v < 16 ? '0' : '') + v.toString(16); }).join('').toUpperCase());
+      });
+    });
+    return out.concat(['#FDE3CF', '#F6C9A6', '#E0A878', '#B97A50', '#7A4E2D', '#4A2F1D',
+      '#D9D6CF', '#A9A49B', '#6E6A63', '#3A3733', '#111111']);
+  })();
   var STAMP_PATHS = {
     star: 'M20 3 L25 15 L38 15 L27.5 23 L31.5 36 L20 28 L8.5 36 L12.5 23 L2 15 L15 15 Z',
     heart: 'M20 36 C2 24 4 6 20 13 C36 6 38 24 20 36 Z',
@@ -39,7 +63,7 @@
     page: null,
     tool: 'crayon',
     color: '#E8473B',
-    sizes: { pencil: 1, crayon: 1, marker: 1, spray: 1, eraser: 1 },
+    sizes: { pencil: 1, crayon: 1, marker: 1, spray: 1, eraser: 1, stamp: 1 },
     stamp: 'star',
     hue: 0,
     penSeen: false
@@ -182,14 +206,121 @@
       b.addEventListener('click', function () { setColor(c); });
       pal.appendChild(b);
     });
+    var more = document.createElement('button');
+    more.id = 'moreColors';
+    more.className = 'swatch more';
+    more.setAttribute('aria-label', 'More colours');
+    more.innerHTML = '<span class="dots"><i></i><i></i><i></i><i></i></span>';
+    more.addEventListener('click', openColorPicker);
+    pal.appendChild(more);
+  }
+
+  // ---------- Popovers ----------
+  var popLayer = null;
+  function closePopover() {
+    if (popLayer) { popLayer.remove(); popLayer = null; }
+  }
+  // side: 'left' of the anchor (colours) or 'right' of it (stamps)
+  function openPopover(anchor, content, side) {
+    closePopover();
+    popLayer = document.createElement('div');
+    popLayer.className = 'pop-layer';
+    var pop = document.createElement('div');
+    pop.className = 'popover ' + side;
+    pop.appendChild(content);
+    popLayer.appendChild(pop);
+    popLayer.addEventListener('pointerdown', function (e) { if (e.target === popLayer) { e.preventDefault(); closePopover(); } });
+    document.body.appendChild(popLayer);
+    var a = anchor.getBoundingClientRect(), p = pop.getBoundingClientRect();
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var top = Math.max(12, Math.min(vh - p.height - 12, a.top + a.height / 2 - p.height / 2));
+    var left = side === 'left' ? a.left - p.width - 16 : a.right + 16;
+    left = Math.max(12, Math.min(vw - p.width - 12, left));
+    pop.style.top = top + 'px';
+    pop.style.left = left + 'px';
+    pop.classList.add('anim'); // animate only after measuring at full size
+  }
+
+  function openColorPicker() {
+    var box = document.createElement('div');
+    box.className = 'color-grid';
+    MORE_COLORS.forEach(function (c) {
+      var b = document.createElement('button');
+      b.className = 'swatch mini' + (c === state.color ? ' active' : '');
+      b.style.background = c;
+      b.setAttribute('aria-label', 'colour ' + c);
+      b.addEventListener('click', function () { setColor(c); closePopover(); });
+      box.appendChild(b);
+    });
+    openPopover($('#moreColors'), box, 'left');
+  }
+
+  function openStampPicker() {
+    var box = document.createElement('div');
+    box.className = 'stamp-picker';
+    var sizes = document.createElement('div');
+    sizes.className = 'stamp-row';
+    [0, 1, 2].forEach(function (i) {
+      var b = document.createElement('button');
+      b.className = 'pick size-pick' + (state.sizes.stamp === i ? ' active' : '');
+      b.innerHTML = '<span style="width:' + (12 + i * 10) + 'px;height:' + (12 + i * 10) + 'px"></span>';
+      b.setAttribute('aria-label', ['small', 'medium', 'big'][i]);
+      b.addEventListener('click', function () {
+        state.sizes.stamp = i;
+        sizes.querySelectorAll('.size-pick').forEach(function (x, j) { x.classList.toggle('active', j === i); });
+      });
+      sizes.appendChild(b);
+    });
+    STAMPS.forEach(function (s) {
+      var b = document.createElement('button');
+      b.className = 'pick shape-pick' + (state.stamp === s ? ' active' : '');
+      b.innerHTML = stampSvg(s);
+      b.setAttribute('aria-label', s);
+      b.addEventListener('click', function () { chooseStamp(s); });
+      sizes.appendChild(b);
+    });
+    box.appendChild(sizes);
+    var grid = document.createElement('div');
+    grid.className = 'emoji-grid';
+    EMOJI.forEach(function (em) {
+      var b = document.createElement('button');
+      b.className = 'pick emoji' + (state.stamp === 'emoji:' + em ? ' active' : '');
+      b.textContent = em;
+      b.addEventListener('click', function () { chooseStamp('emoji:' + em); });
+      grid.appendChild(b);
+    });
+    box.appendChild(grid);
+    openPopover(document.querySelector('.tool[data-tool="stamp"]'), box, 'right');
+  }
+
+  function chooseStamp(s) {
+    state.stamp = s;
+    renderStampIcon();
+    closePopover();
+  }
+
+  function renderStampIcon() {
+    var st = document.querySelector('.tool[data-tool="stamp"] .stamp-shape');
+    if (state.stamp.indexOf('emoji:') === 0) {
+      st.innerHTML = '<span class="emoji-icon">' + state.stamp.slice(6) + '</span>';
+    } else {
+      st.innerHTML = stampSvg(state.stamp);
+    }
   }
 
   function setColor(c) {
     state.color = c;
     if (state.tool === 'eraser') setTool('crayon');
-    document.querySelectorAll('.swatch').forEach(function (s) {
+    var custom = COLORS.indexOf(c) < 0;
+    document.querySelectorAll('#swatches .swatch').forEach(function (s) {
       s.classList.toggle('active', s.dataset.color === c);
     });
+    var more = $('#moreColors');
+    if (more) {
+      more.classList.toggle('active', custom);
+      more.classList.toggle('custom', custom);
+      more.style.background = custom ? c : '';
+    }
     var tint = c === 'rainbow' ? '#F28CB8' : (c === '#FFFFFF' ? '#E9E4DA' : c);
     document.documentElement.style.setProperty('--current', tint);
     studio.classList.toggle('rainbow-on', c === 'rainbow');
@@ -197,10 +328,9 @@
 
   // Tapping the tool you already hold cycles its size (or stamp shape).
   function setTool(t) {
-    if (t === state.tool) {
-      if (t === 'stamp') {
-        state.stamp = STAMPS[(STAMPS.indexOf(state.stamp) + 1) % STAMPS.length];
-      } else if (TOOLS[t].sizes) {
+    if (t === 'stamp' && state.tool !== null) openStampPicker();
+    else if (t === state.tool) {
+      if (TOOLS[t].sizes) {
         state.sizes[t] = (state.sizes[t] + 1) % 3;
       }
       bounce(document.querySelector('.tool[data-tool="' + t + '"]'));
@@ -212,8 +342,7 @@
       var sz = b.querySelector('.size');
       if (sz) sz.dataset.size = state.sizes[b.dataset.tool];
     });
-    var st = document.querySelector('.tool[data-tool="stamp"] .stamp-shape');
-    st.innerHTML = stampSvg(state.stamp);
+    renderStampIcon();
   }
 
   function bounce(el) {
@@ -445,7 +574,7 @@
       else if (t === 'eraser') eraseTo(pt.x, pt.y, false);
       else if (t === 'spray') spray(pt.x, pt.y, 0.35);
       else if (t === 'stamp') {
-        if (Math.hypot(pt.x - active.lastStampX, pt.y - active.lastStampY) > 120) stampAt(pt.x, pt.y);
+        if (Math.hypot(pt.x - active.lastStampX, pt.y - active.lastStampY) > size() * 1.1) stampAt(pt.x, pt.y);
       }
       advanceHue(Math.hypot(pt.x - active.x, pt.y - active.y));
       active.x = pt.x; active.y = pt.y;
@@ -567,12 +696,20 @@
 
   function stampAt(x, y) {
     active.lastStampX = x; active.lastStampY = y;
-    var s = 90;
+    var s = size() / 2;
     pctx.save();
     pctx.globalCompositeOperation = 'source-over';
     pctx.globalAlpha = 1;
     pctx.translate(x, y);
     pctx.rotate((Math.random() - 0.5) * 0.5);
+    if (state.stamp.indexOf('emoji:') === 0) {
+      pctx.font = Math.round(size() * (0.9 + Math.random() * 0.2)) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+      pctx.textAlign = 'center';
+      pctx.textBaseline = 'middle';
+      pctx.fillText(state.stamp.slice(6), 0, size() * 0.05);
+      pctx.restore();
+      return;
+    }
     pctx.fillStyle = strokeColor();
     var sc = s / 20 * (0.85 + Math.random() * 0.3);
     pctx.scale(sc, sc);
@@ -603,7 +740,8 @@
       var rgb = hexToRgb(state.color);
       colorFn = function () { return rgb; };
     }
-    if (ColorFill.floodFill(img, lineMask, x, y, colorFn, 60)) {
+    var linesOnly = !!(state.page && state.page.category);
+    if (ColorFill.floodFill(img, lineMask, x, y, colorFn, 60, linesOnly)) {
       pctx.putImageData(img, 0, 0);
       scheduleSave();
     } else {
