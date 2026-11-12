@@ -8,10 +8,10 @@ An ad-free, upsell-free coloring app for iPad. Built as an installable web app (
 - **54 coloring pages in 9 groups**: Animals, Fairy Tales, Vehicles, Robots, Space, Silly Monsters, Under the Sea,
   Garden & Bugs, Yummy Treats. Plus a blank **Draw** page for free drawing.
 - **Tools**: pencil, crayon, marker, spray paint, paint bucket, stamps (star/heart/flower/dot), eraser.
-- **19 colours** plus a **rainbow** colour that works with every tool. The bucket fills a rainbow gradient.
-- Tap the tool you're holding to change its size (or stamp shape). Undo (8 steps). Hold the red bin for about a second to start over, so a stray tap can't wipe a picture.
+- **11 curated colours** plus a **rainbow** colour that works with every tool. The bucket fills a rainbow gradient.
+- Tap the tool you're holding to change its size (or stamp shape). Undo (8 steps). Hold the bin (under the colours) for about a second to start over, so a stray tap can't wipe a picture.
 - Every page **saves automatically** on the device, and the gallery shows progress.
-- The green camera button opens the iPad share sheet, so the picture can be saved to Photos.
+- The yellow camera button opens the iPad share sheet, so the picture can be saved to Photos.
 - **Apple Pencil**: pressure-sensitive pencil and crayon. Once the Pencil is used, finger and palm touches on the page are ignored.
 - No network calls, no tracking, no accounts.
 

@@ -156,31 +156,36 @@
     var N = [
       [n0, [750, 520], [800, 562], [900, 565]],
       [[900, 565], [1060, 565], [1225, 590], [1230, 720]],
-      [[1230, 720], [1235, 820], [1200, 860], [1160, 865]],
-      [[1160, 865], [1000, 900], [790, 900], [620, 860]],
-      [[620, 860], [560, 840], [550, 720], [570, 640]],
+      [[1230, 720], [1238, 830], [1205, 880], [1160, 888]],
+      [[1160, 888], [1000, 935], [790, 935], [620, 885]],
+      [[620, 885], [555, 860], [548, 730], [570, 640]],
       [[570, 640], [580, 590], [572, 562], n5]
     ];
     var nb = function (i, t) { return cub(N[i], t); };
     var body = 'M' + P(n0) + N.map(C).join('');
-    // short stubby legs with rounded hoof caps
+    // short stubby legs with rounded hoof caps: a near leg plus a far leg peeking out beside it
     var legs = '';
-    [640, 785, 930, 1070].forEach(function (x) {
-      var w = 82, t1 = atX(N[3], x), t2 = atX(N[3], x + w);
-      var bx1 = x - 6, bx2 = x + w + 6, hy = 990;
-      var k1 = (hy - t1[1]) / (1030 - t1[1]), k2 = (hy - t2[1]) / (1030 - t2[1]);
-      var h1 = lerp(t1, [bx1, 1030], k1), h2 = lerp(t2, [bx2, 1030], k2);
-      legs += path('M' + P(t1) + ' L' + bx1 + ' 1030 M' + P(t2) + ' L' + bx2 + ' 1030');
-      legs += path('M' + P(h1) + ' Q' + r((h1[0] + h2[0]) / 2) + ' 955 ' + P(h2));
+    function leg(x, w) {
+      var t1 = atX(N[3], x), t2 = atX(N[3], x + w), b1 = [x - 6, 1030], b2 = [x + w + 6, 1030];
+      var h1 = lerp(t1, b1, (990 - t1[1]) / (1030 - t1[1])), h2 = lerp(t2, b2, (990 - t2[1]) / (1030 - t2[1]));
+      return { t1: t1, t2: t2, b1: b1, b2: b2, h1: h1, h2: h2 };
+    }
+    function hoof(h1, h2) { return path('M' + P(h1) + ' Q' + r((h1[0] + h2[0]) / 2) + ' 955 ' + P(h2)); }
+    [[640, 1], [1030, -1]].forEach(function (pr) {
+      var n = leg(pr[0], 100), far, fx, ft, fb, fh;
+      legs += path('M' + P(n.t1) + ' L' + P(n.b1) + ' M' + P(n.t2) + ' L' + P(n.b2)) + hoof(n.h1, n.h2);
+      if (pr[1] > 0) { fx = n.t2[0] + 62; ft = atX(N[3], fx); fb = [fx + 6, 1030]; }
+      else { fx = n.t1[0] - 62; ft = atX(N[3], fx); fb = [fx - 6, 1030]; }
+      fh = lerp(ft, fb, (990 - ft[1]) / (1030 - ft[1]));
+      legs += path('M' + P(ft) + ' L' + P(fb)) + hoof(pr[1] > 0 ? n.h2 : fh, pr[1] > 0 ? fh : n.h1);
     });
     // horn on the forehead, striped
     var hb1 = hs(4, 0.55), hb2 = hs(4, 0.85), tip = [405, 95];
     // mane: three swoopy locks from the top of the head down onto the back
-    var mA = hs(0, 0.5), mE = nb(1, 0.1);
+    var mA = hs(0, 0.5), mE = nb(1, 0.13);
     var mane = path('M' + P(mA) + ' C730 180 830 200 815 305 C900 300 925 370 885 425' +
-      ' C960 430 985 500 945 545 C990 555 1000 575 ' + P(mE));
-    var maneLines = path('M815 305 Q760 330 ' + P(hs(0, 0.92)) + ' M885 425 Q820 420 ' + P(nb(0, 0.3)) +
-      ' M945 545 Q900 520 ' + P(nb(0, 0.75)));
+      ' C965 430 1000 510 ' + P(mE));
+    var maneLines = path('M815 305 Q760 330 ' + P(hs(0, 0.92)) + ' M885 425 Q820 420 ' + P(nb(0, 0.3)));
     // tail: three locks off the rump
     var tA = nb(1, 0.72), tB = nb(2, 0.45);
     var tail = path('M' + P(tA) + ' C1290 560 1400 570 1405 660 C1460 690 1460 770 1415 800' +
