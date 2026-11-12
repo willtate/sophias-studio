@@ -1,4 +1,4 @@
-# Color Studio
+# Sophia's Studio
 
 An ad-free, upsell-free coloring app for iPad. Built as an installable web app (PWA) so it runs on
 **iPadOS 15 and up**, works offline once installed, and needs no App Store.

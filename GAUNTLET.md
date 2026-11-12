@@ -1,4 +1,4 @@
-# Gauntlet loop for Color Studio
+# Gauntlet loop for Sophia's Studio
 
 The gauntlet loop improves the app by comparing it, blind, against a real best-in-class reference
 and looping until a harsh critic picks ours. v1 is built and working, so the loop polishes it from
@@ -21,7 +21,7 @@ finger, works on iPadOS 15 Safari, zero network requests.
 Paste this into a fresh Claude Code session opened in `color-studio/`:
 
 ```
-Improve Color Studio, the iPad coloring web app in this folder, for a 5-year-old who can't read yet. Keep it ad-free, offline, and working on iPadOS 15 Safari.
+Improve Sophia's Studio, the iPad coloring web app in this folder, for a 5-year-old who can't read yet. Keep it ad-free, offline, and working on iPadOS 15 Safari.
 
 The bar is Pok Pok on iPad. Pull its App Store screenshots and trailer frames and compare against those directly, not against a description of them. The measurable half: bucket fill under 100 ms at iPad resolution, strokes that never trail the finger, zero network requests.
 
