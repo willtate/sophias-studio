@@ -181,7 +181,11 @@ img { -webkit-user-drag: none; }
   .tool svg { width: min(50px, calc((100vw - 24px) / 11 - 10px)); }
   .tool.active { transform: translateY(6px); }
   .size { right: auto; top: auto; bottom: 4px; left: 50%; transform: translateX(-50%); flex-direction: row; }
-  #swatches { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  /* One row of colours with the bin beside it, sized to fit the width (never wraps off screen) */
+  .palette { flex-direction: row; gap: 8px; padding: 0 12px; }
+  #swatches { flex-direction: row; flex-wrap: nowrap; justify-content: center; }
+  #swatches .swatch { width: min(44px, calc((100vw - 24px - 62px - 12 * 8px) / 13)); height: min(44px, calc((100vw - 24px - 62px - 12 * 8px) / 13)); }
+  .round.clear { margin: 0; }
   .swatch.active { transform: scale(1.22) translateY(-4px); }
 }
 

@@ -1,0 +1,4 @@
+# Netlify builds the site from this repo on every push to main.
+[build]
+  command = "sh tools/build-web.sh"
+  publish = "dist"

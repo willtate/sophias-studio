@@ -44,8 +44,10 @@ listed anywhere and tells search engines not to index it. Only the app's own fil
 On the iPad, open it in Safari, then Share > Add to Home Screen. The first visit saves the whole app
 for offline use. Drawings stay on the iPad.
 
-To publish changes: bump `VERSION` in `sw.js`, run `tools/build-web.sh`, then deploy `dist/` to the
-Netlify project. The build writes `version.json` from that `VERSION`. Each time the app opens or comes back
+To publish changes: push to `main`. Once the Netlify project is linked to this GitHub repo, Netlify runs
+`tools/build-web.sh` (see `netlify.toml`) and publishes `dist/`. Netlify builds add the commit to `VERSION`
+(for example `v11-1a2b3c4`), so every push counts as a new version. For a hand deploy instead, bump `VERSION`
+in `sw.js`, run `tools/build-web.sh` and deploy `dist/`. The build writes `version.json` from that version. Each time the app opens or comes back
 to the front it asks the server for `version.json`; if the server has a newer version it downloads it in the
 background and switches over when it won't interrupt anything: straight away on the home screen ("New things
 are here!"), otherwise when she goes back home or the app is put away (the drawing is saved first). Offline,
