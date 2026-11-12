@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Color Studio">
+  <meta name="theme-color" content="#FFF4E6">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="css/app.css">
+  <title>Color Studio</title>
+</head>
+<body>
+  <!-- Pick a page -->
+  <main id="home">
+    <h1 class="title"><span>C</span><span>o</span><span>l</span><span>o</span><span>r</span>&nbsp;<span>S</span><span>t</span><span>u</span><span>d</span><span>i</span><span>o</span></h1>
+    <div id="grid" class="grid"></div>
+  </main>
+
+  <!-- Colour a page -->
+  <main id="studio" hidden>
+    <header class="topbar">
+      <button id="homeBtn" class="big-btn" aria-label="Back to pictures">
+        <svg viewBox="0 0 48 48"><path d="M8 22 L24 8 L40 22 V40 H29 V29 H19 V40 H8 Z" /></svg>
+      </button>
+      <button id="undo" class="big-btn" aria-label="Undo" disabled>
+        <svg viewBox="0 0 48 48"><path d="M18 10 L6 20 L18 30 V23 C28 22 36 26 40 38 C40 24 32 16 18 16 Z" /></svg>
+      </button>
+      <div id="options" class="options"></div>
+      <span class="spacer"></span>
+      <button id="clear" class="big-btn clear" aria-label="Hold to start over">
+        <svg viewBox="0 0 48 48"><path d="M12 14 H36 L33 42 H15 Z M9 10 H39 V14 H9 Z M19 6 H29 V10 H19 Z" /></svg>
+        <span class="ring"></span>
+      </button>
+      <button id="save" class="big-btn save" aria-label="Save to Photos">
+        <svg viewBox="0 0 48 48"><path d="M6 14 H15 L19 8 H29 L33 14 H42 V40 H6 Z" /><circle cx="24" cy="26" r="8" fill="#fff"/></svg>
+      </button>
+    </header>
+
+    <nav class="tools" aria-label="Tools">
+      <span id="currentChip" class="current-chip"></span>
+      <button class="tool" data-tool="pencil" aria-label="Pencil">
+        <svg viewBox="0 0 64 64"><path class="tip" d="M10 54 L14 42 L22 50 Z"/><path d="M14 42 L44 12 L52 20 L22 50 Z" fill="#FFC94A" stroke="#333" stroke-width="2"/><path d="M44 12 L48 8 L56 16 L52 20 Z" fill="#FF8FA3" stroke="#333" stroke-width="2"/></svg>
+      </button>
+      <button class="tool" data-tool="crayon" aria-label="Crayon">
+        <svg viewBox="0 0 64 64"><path class="tip" d="M10 54 L12 44 L20 52 Z"/><path class="tip" d="M12 44 L40 16 L48 24 L20 52 Z"/><path d="M40 16 L48 8 L56 16 L48 24 Z" fill="#fff" stroke="#333" stroke-width="2"/><path d="M18 38 L26 46 M30 26 L38 34" stroke="#fff" stroke-width="3" opacity=".6"/></svg>
+      </button>
+      <button class="tool" data-tool="marker" aria-label="Marker">
+        <svg viewBox="0 0 64 64"><path class="tip" d="M8 56 L10 44 L20 54 Z"/><path d="M12 42 L22 52 L50 24 L40 14 Z" fill="#eee" stroke="#333" stroke-width="2"/><path class="tip" d="M40 14 L46 8 L56 18 L50 24 Z"/></svg>
+      </button>
+      <button class="tool" data-tool="spray" aria-label="Spray paint">
+        <svg viewBox="0 0 64 64"><rect x="26" y="22" width="22" height="36" rx="5" fill="#ddd" stroke="#333" stroke-width="2"/><rect class="tip" x="26" y="32" width="22" height="14"/><rect x="31" y="14" width="12" height="8" fill="#999" stroke="#333" stroke-width="2"/><g class="tip"><circle cx="18" cy="12" r="2.5"/><circle cx="12" cy="18" r="2.5"/><circle cx="20" cy="20" r="2"/><circle cx="8" cy="10" r="2"/><circle cx="14" cy="6" r="2"/><circle cx="6" cy="22" r="1.8"/></g></svg>
+      </button>
+      <button class="tool" data-tool="bucket" aria-label="Paint bucket">
+        <svg viewBox="0 0 64 64"><path d="M14 26 L36 8 L54 30 L32 48 Z" fill="#ddd" stroke="#333" stroke-width="2"/><path class="tip" d="M14 26 C10 34 6 44 10 50 C14 56 20 48 16 38 Z"/><path class="tip" d="M14 26 L54 30 L32 48 Z" opacity=".9"/></svg>
+      </button>
+      <button class="tool" data-tool="stamp" aria-label="Stamps">
+        <svg viewBox="0 0 64 64"><path class="tip" d="M32 6 L39 24 L58 24 L43 36 L49 56 L32 44 L15 56 L21 36 L6 24 L25 24 Z" stroke="#333" stroke-width="2"/></svg>
+      </button>
+      <button class="tool" data-tool="eraser" aria-label="Eraser">
+        <svg viewBox="0 0 64 64"><path d="M8 40 L32 16 L54 38 L36 56 L22 56 Z" fill="#FF9EB5" stroke="#333" stroke-width="2"/><path d="M8 40 L22 54 L36 56 L22 56 Z M8 40 L20 28 L40 48 L30 56" fill="#fff" stroke="#333" stroke-width="2"/></svg>
+      </button>
+    </nav>
+
+    <section id="stage" class="stage">
+      <div id="board" class="board">
+        <canvas id="paint"></canvas>
+        <canvas id="stroke"></canvas>
+        <img id="lines" alt="">
+      </div>
+    </section>
+
+    <aside id="palette" class="palette" aria-label="Colours"></aside>
+  </main>
+
+  <script src="js/pages.js"></script>
+  <script src="js/fill.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
