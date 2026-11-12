@@ -30,6 +30,17 @@ proper full-screen home-screen app it must be served over **HTTPS**: any static 
 
 When you ship changes, bump `VERSION` in `sw.js` so installed copies update.
 
+## Hosted version (Home Screen app)
+
+Live at https://little-color-studio.netlify.app (Netlify project `little-color-studio`). It isn't
+listed anywhere and tells search engines not to index it. Only the app's own files are uploaded.
+
+On the iPad, open it in Safari, then Share > Add to Home Screen. The first visit saves the whole app
+for offline use. Drawings stay on the iPad.
+
+To publish changes: bump `VERSION` in `sw.js`, run `tools/build-web.sh`, then deploy `dist/` to the
+Netlify project. iPads pick up the new version in the background and show it on the next launch.
+
 ## iPad app
 
 `ios/SophiasStudio.xcodeproj` is a native iPad app (iPadOS 15 and later) that runs the same web code
