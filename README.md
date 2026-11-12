@@ -5,10 +5,11 @@ An ad-free, upsell-free coloring app for iPad. Built as an installable web app (
 
 ## What's in it
 
-- **10 pages**: kitty, fish, house, flowers, butterfly, rocket, dino, ice cream, rainbow, blank.
+- **54 coloring pages in 9 groups**: Animals, Fairy Tales, Vehicles, Robots, Space, Silly Monsters, Under the Sea,
+  Garden & Bugs, Yummy Treats. Plus a blank **Draw** page for free drawing.
 - **Tools**: pencil, crayon, marker, spray paint, paint bucket, stamps (star/heart/flower/dot), eraser.
 - **19 colours** plus a **rainbow** colour that works with every tool. The bucket fills a rainbow gradient.
-- 3 sizes per tool. Undo (8 steps). Hold the red bin for about a second to start over, so a stray tap can't wipe a picture.
+- Tap the tool you're holding to change its size (or stamp shape). Undo (8 steps). Hold the red bin for about a second to start over, so a stray tap can't wipe a picture.
 - Every page **saves automatically** on the device, and the gallery shows progress.
 - The green camera button opens the iPad share sheet, so the picture can be saved to Photos.
 - **Apple Pencil**: pressure-sensitive pencil and crayon. Once the Pencil is used, finger and palm touches on the page are ignored.
@@ -37,9 +38,11 @@ Safari 15 (no OffscreenCanvas, no `Array.at`, no `structuredClone`).
 | File | Purpose |
 |---|---|
 | `index.html`, `css/app.css` | UI: gallery, then studio with tools on the left and colours on the right (portrait: tools on top, colours at the bottom) |
-| `js/pages.js` | Line art for each page, drawn as SVG with closed outlines so the bucket fills cleanly |
+| `js/art-kit.js` | Drawing helpers, the list of groups, and the page registry |
+| `js/pages/*.js` | One file per group of line-art pages, drawn as SVG with closed outlines so the bucket fills cleanly |
+| `tools/render.js` | `node tools/render.js <outDir> [group]` renders pages to PNG contact sheets for checking (macOS) |
 | `js/fill.js` | Scanline flood fill bounded by line art and existing paint, with 2px edge growth so no white halos are left |
-| `js/app.js` | Tools, input, undo, autosave, export |
+| `js/app.js` | Gallery, tools, input, undo, autosave, export |
 | `js/store.js` | IndexedDB storage for saved pictures |
 | `sw.js`, `manifest.webmanifest` | Offline cache and home-screen install |
 

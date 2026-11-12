@@ -18,27 +18,26 @@
 <body>
   <!-- Pick a page -->
   <main id="home">
-    <h1 class="title"><span>C</span><span>o</span><span>l</span><span>o</span><span>r</span>&nbsp;<span>S</span><span>t</span><span>u</span><span>d</span><span>i</span><span>o</span></h1>
+    <header class="home-head">
+      <button id="back" class="back" aria-label="Back to groups" hidden>
+        <svg viewBox="0 0 48 48"><path d="M30 10 L16 24 L30 38" fill="none" stroke="#34405A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <h1 class="title"><span>C</span><span>o</span><span>l</span><span>o</span><span>r</span>&nbsp;<span>S</span><span>t</span><span>u</span><span>d</span><span>i</span><span>o</span></h1>
+      <h1 id="catName" class="cat-name"></h1>
+    </header>
     <div id="grid" class="grid"></div>
   </main>
 
   <!-- Colour a page -->
   <main id="studio" hidden>
     <div class="corner left">
-      <button id="homeBtn" class="quiet" aria-label="Back to pictures">
+      <button id="homeBtn" class="round" aria-label="Back to pictures">
         <svg viewBox="0 0 48 48"><path d="M10 22 L24 10 L38 22 V38 H28 V29 H20 V38 H10 Z"/></svg>
-      </button>
-      <button id="undo" class="quiet" aria-label="Undo" disabled>
-        <svg viewBox="0 0 48 48"><path d="M19 11 L8 20 L19 29 V23 C28 22 35 26 39 37 C39 24 31 16 19 16 Z"/></svg>
       </button>
     </div>
     <div class="corner right">
-      <button id="clear" class="quiet clear" aria-label="Hold to start over">
-        <svg viewBox="0 0 48 48"><path d="M14 16 H34 L32 39 H16 Z M11 11 H37 V15 H11 Z M20 7 H28 V11 H20 Z"/></svg>
-        <span class="ring"></span>
-      </button>
-      <button id="save" class="quiet save" aria-label="Save to Photos">
-        <svg viewBox="0 0 48 48"><path d="M8 16 H16 L19.5 11 H28.5 L32 16 H40 V37 H8 Z"/><circle cx="24" cy="26" r="6.5" fill="#FBF7F0"/></svg>
+      <button id="save" class="round save" aria-label="Save to Photos">
+        <svg viewBox="0 0 48 48"><path d="M8 16 H16 L19.5 11 H28.5 L32 16 H40 V37 H8 Z"/><circle cx="24" cy="26" r="6.5" fill="#34405A"/></svg>
       </button>
     </div>
 
@@ -95,6 +94,9 @@
         </g></svg>
         <span class="size"><i></i><i></i><i></i></span>
       </button>
+      <button id="undo" class="round undo" aria-label="Undo" disabled>
+        <svg viewBox="0 0 48 48"><path d="M19 11 L8 20 L19 29 V23 C28 22 35 26 39 37 C39 24 31 16 19 16 Z"/></svg>
+      </button>
     </nav>
 
     <section id="stage" class="stage">
@@ -105,10 +107,27 @@
       </div>
     </section>
 
-    <aside class="palette" aria-label="Colours"><div id="swatches"></div></aside>
+    <aside class="palette" aria-label="Colours">
+      <div id="swatches"></div>
+      <button id="clear" class="round clear" aria-label="Hold to start over">
+        <svg viewBox="0 0 48 48"><path d="M14 16 H34 L32 39 H16 Z M11 11 H37 V15 H11 Z M20 7 H28 V11 H20 Z"/></svg>
+        <span class="ring"></span>
+      </button>
+    </aside>
   </main>
 
-  <script src="js/pages.js"></script>
+  <script src="js/art-kit.js"></script>
+  <script src="js/pages/animals.js"></script>
+  <script src="js/pages/fairy.js"></script>
+  <script src="js/pages/vehicles.js"></script>
+  <script src="js/pages/robots.js"></script>
+  <script src="js/pages/space.js"></script>
+  <script src="js/pages/monsters.js"></script>
+  <script src="js/pages/sea.js"></script>
+  <script src="js/pages/garden.js"></script>
+  <script src="js/pages/treats.js"></script>
+  <script src="js/pages/starter.js"></script>
+  <script>Art.finalize();</script>
   <script src="js/fill.js"></script>
   <script src="js/store.js"></script>
   <script src="js/app.js"></script>

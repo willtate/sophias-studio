@@ -105,22 +105,68 @@
   }, { passive: false });
 
   // ---------- Gallery ----------
+  // Home shows a shelf of groups (Animals, Space, ...); tapping one shows its pages.
+  var galleryCat = null;
+  var thumbUrls = [];
+
+  function pageCard(p) {
+    var b = document.createElement('button');
+    b.className = 'card';
+    b.setAttribute('aria-label', p.name);
+    b.innerHTML = '<div class="thumb"><img class="saved" alt=""><img class="art" alt="" src="' + p.svgUrl + '"></div>';
+    b.addEventListener('click', function () { openPage(p); });
+    ArtStore.get(p.id).then(function (blob) {
+      if (blob) {
+        var im = b.querySelector('.saved');
+        var u = URL.createObjectURL(blob);
+        thumbUrls.push(u);
+        im.src = u;
+        im.style.visibility = 'visible';
+      }
+    });
+    return b;
+  }
+
   function buildGallery() {
+    thumbUrls.forEach(function (u) { URL.revokeObjectURL(u); });
+    thumbUrls = [];
     grid.innerHTML = '';
-    ColorPages.list.forEach(function (p) {
+    var cat = galleryCat && ColorPages.categories.filter(function (c) { return c.id === galleryCat; })[0];
+    home.classList.toggle('in-cat', !!cat);
+    $('#back').hidden = !cat;
+    if (cat) {
+      var crgb = hexToRgb(cat.color);
+      var light = crgb[0] * 0.299 + crgb[1] * 0.587 + crgb[2] * 0.114 > 170;
+      home.style.setProperty('--cat', light ? '#34405A' : cat.color);
+      $('#catName').textContent = cat.name;
+      grid.className = 'grid pages';
+      cat.pages.forEach(function (p) { grid.appendChild(pageCard(p)); });
+      home.scrollTop = 0;
+      return;
+    }
+    $('#catName').textContent = '';
+    grid.className = 'grid shelf';
+
+    var blank = document.createElement('button');
+    blank.className = 'shelf-card blank';
+    blank.setAttribute('aria-label', 'Blank page');
+    blank.innerHTML = '<div class="cover"><svg viewBox="0 0 64 64"><path d="M32 16 V48 M16 32 H48" stroke="#34405A" stroke-width="6" stroke-linecap="round"/></svg></div><span>Draw</span>';
+    blank.addEventListener('click', function () { openPage(ColorPages.blank); });
+    grid.appendChild(blank);
+
+    ColorPages.categories.forEach(function (c) {
       var b = document.createElement('button');
-      b.className = 'card';
-      b.setAttribute('aria-label', p.name);
-      b.innerHTML = '<div class="thumb"><img class="saved" alt=""><img class="art" alt="" src="' + p.svgUrl + '"></div>';
-      b.addEventListener('click', function () { openPage(p); });
+      b.className = 'shelf-card';
+      b.style.setProperty('--cat', c.color);
+      var rgb = hexToRgb(c.color);
+      if (rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114 > 170) b.classList.add('light');
+      b.setAttribute('aria-label', c.name);
+      var covers = c.pages.slice(0, 3).map(function (p, i) {
+        return '<img class="c' + i + '" alt="" src="' + p.svgUrl + '">';
+      }).join('');
+      b.innerHTML = '<div class="cover">' + covers + '</div><span>' + c.name + '</span>';
+      b.addEventListener('click', function () { galleryCat = c.id; buildGallery(); });
       grid.appendChild(b);
-      ArtStore.get(p.id).then(function (blob) {
-        if (blob) {
-          var im = b.querySelector('.saved');
-          im.src = URL.createObjectURL(blob);
-          im.style.visibility = 'visible';
-        }
-      });
     });
   }
 
@@ -247,6 +293,7 @@
 
   function openPage(p) {
     state.page = p;
+    galleryCat = p.category;
     undoStack.forEach(function (c) { c.width = c.height = 1; });
     undoStack = [];
     $('#undo').disabled = true;
@@ -575,6 +622,7 @@
     b.addEventListener('click', function () { setTool(b.dataset.tool); });
   });
   $('#homeBtn').addEventListener('click', goHome);
+  $('#back').addEventListener('click', function () { galleryCat = null; buildGallery(); });
   $('#undo').addEventListener('click', undo);
   $('#save').addEventListener('click', function () { saveNow(); exportImage(); });
 
