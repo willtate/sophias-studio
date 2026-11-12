@@ -1053,8 +1053,13 @@
   // ---------- Tracing letters ----------
   // A letter counts as traced when most of its dots have colour on or right next to them.
   var trace = null;
+  // Turns "{A} is for apple" into separate phrases, ["A", "is for apple"], so the voice says
+  // the letter's name on its own (inside a sentence it reads "A" as "uh" and "ay" as "eye").
   function spoken(t) {
-    return t.replace(/\{(.)\}/g, function (m, ch) { return LETTER_NAMES[ch.toUpperCase()] || ch; });
+    return t.split(/(\{.\})/).filter(function (part) { return part.trim(); }).map(function (part) {
+      var m = /^\{(.)\}$/.exec(part);
+      return m ? LETTER_NAMES[m[1].toUpperCase()] || m[1] : part.trim();
+    });
   }
   function checkTrace(celebrate) {
     var tr = state.page && state.page.trace;
@@ -1597,7 +1602,7 @@
   // ---------- Letters keyboard ----------
   var kbd = $('#kbd');
   var kbdMode = 'upper'; // 'upper' | 'lower' | 'nums'
-  var LETTER_NAMES = { A: 'ay', B: 'bee', C: 'see', D: 'dee', E: 'ee', F: 'eff', G: 'jee', H: 'aitch', I: 'eye', J: 'jay',
+  var LETTER_NAMES = { A: 'A', B: 'bee', C: 'see', D: 'dee', E: 'ee', F: 'eff', G: 'jee', H: 'aitch', I: 'eye', J: 'jay',
     K: 'kay', L: 'ell', M: 'em', N: 'en', O: 'oh', P: 'pee', Q: 'cue', R: 'are', S: 'ess', T: 'tee', U: 'you', V: 'vee',
     W: 'double you', X: 'ex', Y: 'why', Z: 'zee' };
 
@@ -1680,9 +1685,12 @@
     if (!window.speechSynthesis || (window.Sound && Sound.muted)) return;
     try {
       speechSynthesis.cancel();
-      var u = new SpeechSynthesisUtterance(text);
-      u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.15;
-      speechSynthesis.speak(u);
+      // A list is spoken as separate phrases, one after another.
+      [].concat(text).forEach(function (part) {
+        var u = new SpeechSynthesisUtterance(part);
+        u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.15;
+        speechSynthesis.speak(u);
+      });
     } catch (e) {}
   }
 
