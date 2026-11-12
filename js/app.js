@@ -3,28 +3,43 @@
 
   var W = ColorPages.W, H = ColorPages.H;
 
+  // Curated palette: even saturation/value steps, no near-duplicates.
   var COLORS = [
-    '#FF3B30', '#FF9500', '#FFD60A', '#A4E05F', '#34C759', '#30C9C1',
-    '#5AC8FA', '#007AFF', '#8E5CF7', '#C86BFA', '#FF6FB5', '#FFB3D9',
-    '#FFD9B8', '#E0A96D', '#8B5A2B', '#8E8E93', '#1C1C1E', '#FFFFFF', 'rainbow'
+    '#E8473B', // red
+    '#F7932E', // orange
+    '#F9D648', // yellow
+    '#6BBF4E', // green
+    '#1FA99A', // teal
+    '#2E9BE0', // sky
+    '#5867D6', // blue-violet
+    '#F28CB8', // pink
+    '#9C6644', // brown
+    '#34405A', // navy (our "black")
+    '#FFFFFF', // white
+    'rainbow'
   ];
 
   var TOOLS = {
-    pencil: { sizes: [5, 10, 16] },
-    crayon: { sizes: [12, 22, 34] },
-    marker: { sizes: [18, 34, 60] },
-    spray:  { sizes: [40, 70, 110] },
+    pencil: { sizes: [6, 11, 18] },
+    crayon: { sizes: [16, 28, 44] },
+    marker: { sizes: [20, 38, 64] },
+    spray:  { sizes: [45, 75, 115] },
     bucket: { sizes: null },
-    eraser: { sizes: [24, 50, 100] },
-    stamp:  { sizes: [50, 85, 130] }
+    stamp:  { sizes: null },
+    eraser: { sizes: [26, 54, 100] }
   };
   var STAMPS = ['star', 'heart', 'flower', 'dot'];
+  var STAMP_PATHS = {
+    star: 'M20 3 L25 15 L38 15 L27.5 23 L31.5 36 L20 28 L8.5 36 L12.5 23 L2 15 L15 15 Z',
+    heart: 'M20 36 C2 24 4 6 20 13 C36 6 38 24 20 36 Z',
+    dot: 'M20 5 A15 15 0 1 1 19.99 5 Z'
+  };
 
   var state = {
     page: null,
-    tool: 'marker',
-    color: '#FF3B30',
-    sizeIdx: 1,
+    tool: 'crayon',
+    color: '#E8473B',
+    sizes: { pencil: 1, crayon: 1, marker: 1, spray: 1, eraser: 1 },
     stamp: 'star',
     hue: 0,
     penSeen: false
@@ -34,15 +49,48 @@
   var $ = function (s) { return document.querySelector(s); };
   var home = $('#home'), studio = $('#studio'), grid = $('#grid');
   var stage = $('#stage'), board = $('#board');
-  var paint = $('#paint'), strokeCv = $('#stroke'), lineImg = $('#lines');
+  var paint = $('#paint'), lineImg = $('#lines');
   var pctx = paint.getContext('2d');
-  var sctx = strokeCv.getContext('2d');
-  var lineCanvas = document.createElement('canvas');
-  lineCanvas.width = W; lineCanvas.height = H;
-  var lctx = lineCanvas.getContext('2d');
+  paint.width = W; paint.height = H;
+
+  // Offscreen helpers
+  function makeCanvas(w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+  var lineCanvas = makeCanvas(W, H), lctx = lineCanvas.getContext('2d');
+  var strokeCv = makeCanvas(W, H), sctx = strokeCv.getContext('2d'); // solid stroke, current gesture
+  var tmpCv = makeCanvas(256, 256), tctx = tmpCv.getContext('2d');
   var lineMask = null;
 
-  [paint, strokeCv].forEach(function (c) { c.width = W; c.height = H; });
+  // ---------- Paper grain (fixed to the page, so crayon looks like crayon) ----------
+  function makeGrain(lo, hi, holes, clump) {
+    var s = 256, small = makeCanvas(s / clump, s / clump), sx = small.getContext('2d');
+    var img = sx.createImageData(small.width, small.height), d = img.data;
+    for (var i = 0; i < d.length; i += 4) {
+      var v = Math.random() < holes ? lo * Math.random() : lo + (hi - lo) * Math.random();
+      d[i] = d[i + 1] = d[i + 2] = 0; d[i + 3] = Math.round(v * 255);
+    }
+    sx.putImageData(img, 0, 0);
+    var big = makeCanvas(s, s), bx = big.getContext('2d');
+    bx.imageSmoothingEnabled = true;
+    bx.drawImage(small, 0, 0, s, s);
+    // add fine speckle on top of the clumps
+    var fine = bx.getImageData(0, 0, s, s), fd = fine.data;
+    for (var j = 3; j < fd.length; j += 4) {
+      var r = Math.random();
+      // occasional bright flecks where the "paper tooth" pokes through
+      fd[j] = r < 0.06 ? fd[j] * 0.35 : Math.max(0, Math.min(255, fd[j] + (r - 0.5) * 40));
+    }
+    bx.putImageData(fine, 0, 0);
+    return big;
+  }
+  var GRAIN = {
+    crayon: makeGrain(0.7, 1.0, 0.1, 3),
+    pencil: makeGrain(0.55, 0.95, 0.18, 2)
+  };
+  var BRUSH = {
+    pencil: { grain: 'pencil', alpha: 0.95 },
+    crayon: { grain: 'crayon', alpha: 1 },
+    marker: { grain: null, alpha: 0.82 }
+  };
 
   // ---------- Prevent iOS zoom / callouts ----------
   ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (ev) {
@@ -78,12 +126,11 @@
 
   // ---------- Palette & tools ----------
   function buildPalette() {
-    var pal = $('#palette');
+    var pal = $('#swatches');
     COLORS.forEach(function (c) {
       var b = document.createElement('button');
-      b.className = 'swatch' + (c === 'rainbow' ? ' rainbow' : '');
+      b.className = 'swatch' + (c === 'rainbow' ? ' rainbow' : '') + (c === '#FFFFFF' ? ' white' : '');
       if (c !== 'rainbow') b.style.background = c;
-      if (c === '#FFFFFF') b.classList.add('white');
       b.dataset.color = c;
       b.setAttribute('aria-label', c === 'rainbow' ? 'rainbow' : 'colour ' + c);
       b.addEventListener('click', function () { setColor(c); });
@@ -93,61 +140,48 @@
 
   function setColor(c) {
     state.color = c;
-    if (state.tool === 'eraser') setTool('marker');
+    if (state.tool === 'eraser') setTool('crayon');
     document.querySelectorAll('.swatch').forEach(function (s) {
       s.classList.toggle('active', s.dataset.color === c);
     });
-    updateToolTint();
+    var tint = c === 'rainbow' ? '#F28CB8' : (c === '#FFFFFF' ? '#E9E4DA' : c);
+    document.documentElement.style.setProperty('--current', tint);
+    studio.classList.toggle('rainbow-on', c === 'rainbow');
   }
 
+  // Tapping the tool you already hold cycles its size (or stamp shape).
   function setTool(t) {
+    if (t === state.tool) {
+      if (t === 'stamp') {
+        state.stamp = STAMPS[(STAMPS.indexOf(state.stamp) + 1) % STAMPS.length];
+      } else if (TOOLS[t].sizes) {
+        state.sizes[t] = (state.sizes[t] + 1) % 3;
+      }
+      bounce(document.querySelector('.tool[data-tool="' + t + '"]'));
+    }
     state.tool = t;
     document.querySelectorAll('.tool').forEach(function (b) {
-      b.classList.toggle('active', b.dataset.tool === t);
+      var on = b.dataset.tool === t;
+      b.classList.toggle('active', on);
+      var sz = b.querySelector('.size');
+      if (sz) sz.dataset.size = state.sizes[b.dataset.tool];
     });
-    renderOptions();
+    var st = document.querySelector('.tool[data-tool="stamp"] .stamp-shape');
+    st.innerHTML = stampSvg(state.stamp);
   }
 
-  function updateToolTint() {
-    var c = state.color === 'rainbow' ? 'conic-gradient(red, orange, yellow, lime, cyan, blue, magenta, red)' : state.color;
-    document.documentElement.style.setProperty('--current', state.color === 'rainbow' ? '#ff6fb5' : state.color);
-    var chip = $('#currentChip');
-    chip.style.background = c;
+  function bounce(el) {
+    if (!el) return;
+    el.classList.remove('bounce');
+    void el.offsetWidth;
+    el.classList.add('bounce');
   }
 
-  function renderOptions() {
-    var opts = $('#options');
-    opts.innerHTML = '';
-    var tool = TOOLS[state.tool];
-    if (state.tool === 'stamp') {
-      STAMPS.forEach(function (s) {
-        var b = document.createElement('button');
-        b.className = 'opt stamp-opt' + (state.stamp === s ? ' active' : '');
-        b.innerHTML = stampIcon(s);
-        b.addEventListener('click', function () { state.stamp = s; renderOptions(); });
-        opts.appendChild(b);
-      });
+  function stampSvg(s) {
+    if (s === 'flower') {
+      return '<svg viewBox="0 0 40 40"><g class="fillc"><circle cx="20" cy="9" r="7"/><circle cx="31" cy="17" r="7"/><circle cx="27" cy="30" r="7"/><circle cx="13" cy="30" r="7"/><circle cx="9" cy="17" r="7"/></g><circle cx="20" cy="20" r="6" fill="#F9D648"/></svg>';
     }
-    if (tool.sizes) {
-      tool.sizes.forEach(function (sz, i) {
-        var b = document.createElement('button');
-        b.className = 'opt size-opt' + (state.sizeIdx === i ? ' active' : '');
-        var dot = 10 + i * 12;
-        b.innerHTML = '<span style="width:' + dot + 'px;height:' + dot + 'px"></span>';
-        b.addEventListener('click', function () { state.sizeIdx = i; renderOptions(); });
-        opts.appendChild(b);
-      });
-    }
-  }
-
-  function stampIcon(s) {
-    var m = {
-      star: '<svg viewBox="0 0 40 40"><path d="M20 3 L25 15 L38 15 L27.5 23 L31.5 36 L20 28 L8.5 36 L12.5 23 L2 15 L15 15 Z"/></svg>',
-      heart: '<svg viewBox="0 0 40 40"><path d="M20 36 C2 24 4 6 20 13 C36 6 38 24 20 36 Z"/></svg>',
-      flower: '<svg viewBox="0 0 40 40"><circle cx="20" cy="9" r="7"/><circle cx="31" cy="17" r="7"/><circle cx="27" cy="30" r="7"/><circle cx="13" cy="30" r="7"/><circle cx="9" cy="17" r="7"/><circle cx="20" cy="20" r="6" fill="#FFD60A"/></svg>',
-      dot: '<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="15"/></svg>'
-    };
-    return m[s];
+    return '<svg viewBox="0 0 40 40"><path class="fillc" d="' + STAMP_PATHS[s] + '"/></svg>';
   }
 
   // ---------- Colour helpers ----------
@@ -163,18 +197,20 @@
     return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
   }
   function strokeColor() {
-    if (state.color === 'rainbow') return 'hsl(' + Math.round(state.hue) + ',95%,55%)';
+    if (state.color === 'rainbow') return 'hsl(' + Math.round(state.hue) + ',80%,58%)';
     return state.color;
   }
 
   // ---------- Undo ----------
   var undoStack = [];
   var MAX_UNDO = 8;
-  function pushUndo() {
-    var c = document.createElement('canvas');
-    c.width = W; c.height = H;
+  function snapshot() {
+    var c = makeCanvas(W, H);
     c.getContext('2d').drawImage(paint, 0, 0);
-    undoStack.push(c);
+    return c;
+  }
+  function pushUndo(c) {
+    undoStack.push(c || snapshot());
     if (undoStack.length > MAX_UNDO) {
       var old = undoStack.shift();
       old.width = old.height = 1; // release memory on iOS
@@ -265,8 +301,7 @@
   }
 
   function exportImage() {
-    var c = document.createElement('canvas');
-    c.width = W; c.height = H;
+    var c = makeCanvas(W, H);
     var x = c.getContext('2d');
     x.drawImage(paint, 0, 0);
     x.drawImage(lineCanvas, 0, 0);
@@ -286,13 +321,17 @@
       }
       c.width = c.height = 1;
     }, 'image/png');
+    flash();
+  }
+  function flash() {
+    var f = $('#flash');
+    f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
   }
 
   // ---------- Layout ----------
   function fitBoard() {
     var r = stage.getBoundingClientRect();
-    var pad = 8;
-    var aw = r.width - pad * 2, ah = r.height - pad * 2;
+    var aw = r.width, ah = r.height;
     var w = Math.min(aw, ah * W / H);
     board.style.width = Math.floor(w) + 'px';
     board.style.height = Math.floor(w * H / W) + 'px';
@@ -301,7 +340,7 @@
   window.addEventListener('orientationchange', function () { setTimeout(fitBoard, 250); });
 
   // ---------- Drawing ----------
-  var active = null; // { id, x, y, ... }
+  var active = null;
   var sprayTimer = null;
 
   function toCanvas(e) {
@@ -310,7 +349,7 @@
   }
   function size() {
     var s = TOOLS[state.tool].sizes;
-    return s ? s[state.sizeIdx] : 0;
+    return s ? s[state.sizes[state.tool]] : 0;
   }
 
   function onDown(e) {
@@ -321,7 +360,7 @@
     e.preventDefault();
     try { board.setPointerCapture(e.pointerId); } catch (err) {}
     var pt = toCanvas(e);
-    active = { id: e.pointerId, x: pt.x, y: pt.y, lastStampX: -9999, lastStampY: -9999, pressure: e.pressure };
+    active = { id: e.pointerId, x: pt.x, y: pt.y, mx: pt.x, my: pt.y, lastStampX: -9999, lastStampY: -9999, t: Date.now(), w: null };
 
     var t = state.tool;
     if (t === 'bucket') {
@@ -329,18 +368,21 @@
       active = null;
       return;
     }
-    pushUndo();
-    if (t === 'marker') {
+    if (BRUSH[t]) {
+      active.base = snapshot();
+      pushUndo(snapshot());
       sctx.clearRect(0, 0, W, H);
-      strokeCv.style.opacity = 0.85;
-      markerSegment(pt.x, pt.y, pt.x, pt.y);
-    } else if (t === 'spray') {
-      spray(pt.x, pt.y);
-      sprayTimer = setInterval(function () { if (active) spray(active.x, active.y); }, 30);
-    } else if (t === 'stamp') {
-      stampAt(pt.x, pt.y);
+      brushTo(pt.x, pt.y, e.pressure, true);
     } else {
-      segment(pt.x, pt.y, pt.x, pt.y, e.pressure);
+      pushUndo();
+      if (t === 'spray') {
+        spray(pt.x, pt.y);
+        sprayTimer = setInterval(function () { if (active) spray(active.x, active.y); }, 30);
+      } else if (t === 'stamp') {
+        stampAt(pt.x, pt.y);
+      } else if (t === 'eraser') {
+        eraseTo(pt.x, pt.y, true);
+      }
     }
   }
 
@@ -352,13 +394,12 @@
     for (var i = 0; i < events.length; i++) {
       var pt = toCanvas(events[i]);
       var t = state.tool;
-      if (t === 'marker') markerSegment(active.x, active.y, pt.x, pt.y);
-      else if (t === 'spray') { /* timer handles it */ spray(pt.x, pt.y, 0.4); }
+      if (BRUSH[t]) brushTo(pt.x, pt.y, events[i].pressure, false);
+      else if (t === 'eraser') eraseTo(pt.x, pt.y, false);
+      else if (t === 'spray') spray(pt.x, pt.y, 0.35);
       else if (t === 'stamp') {
-        var gap = size() * 1.3;
-        if (Math.hypot(pt.x - active.lastStampX, pt.y - active.lastStampY) > gap) stampAt(pt.x, pt.y);
+        if (Math.hypot(pt.x - active.lastStampX, pt.y - active.lastStampY) > 120) stampAt(pt.x, pt.y);
       }
-      else segment(active.x, active.y, pt.x, pt.y, events[i].pressure);
       advanceHue(Math.hypot(pt.x - active.x, pt.y - active.y));
       active.x = pt.x; active.y = pt.y;
     }
@@ -367,11 +408,10 @@
   function onUp(e) {
     if (!active || e.pointerId !== active.id) return;
     clearInterval(sprayTimer);
-    if (state.tool === 'marker') {
-      pctx.globalAlpha = 0.85;
-      pctx.drawImage(strokeCv, 0, 0);
-      pctx.globalAlpha = 1;
-      sctx.clearRect(0, 0, W, H);
+    if (BRUSH[state.tool]) {
+      // finish the tail of the smoothed curve
+      brushTo(active.x, active.y, null, false, true);
+      if (active.base) { active.base.width = active.base.height = 1; }
     }
     active = null;
     scheduleSave();
@@ -379,75 +419,100 @@
 
   function advanceHue(dist) { state.hue = (state.hue + dist * 0.25) % 360; }
 
-  function pressureScale(p) {
-    if (!state.penSeen || !p) return 1;
-    return 0.5 + p * 1.0;
+  // Width: pencil pressure if available, otherwise a gentle speed taper for fingers.
+  function brushWidth(pressure) {
+    var base = size();
+    if (state.penSeen && pressure) return base * (0.45 + pressure * 1.1);
+    var now = Date.now(), dt = Math.max(1, now - active.t);
+    var speed = Math.hypot(active.x - active.mx, active.y - active.my) / dt;
+    active.t = now;
+    var target = base * Math.max(0.75, 1.08 - speed * 0.06);
+    active.w = active.w == null ? target : active.w + (target - active.w) * 0.3;
+    return active.w;
   }
 
-  function segment(x0, y0, x1, y1, pressure) {
-    var t = state.tool;
-    if (t === 'pencil') {
-      pctx.globalCompositeOperation = 'source-over';
-      pctx.globalAlpha = 0.92;
-      pctx.strokeStyle = strokeColor();
-      pctx.lineWidth = size() * pressureScale(pressure);
-      pctx.lineCap = 'round'; pctx.lineJoin = 'round';
-      pctx.beginPath(); pctx.moveTo(x0, y0); pctx.lineTo(x1, y1); pctx.stroke();
-      // a little graphite grain
-      pctx.globalAlpha = 0.25;
-      pctx.fillStyle = '#FFFFFF';
-      var n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 3) + 1;
-      for (var i = 0; i < n; i++) {
-        var f = i / n, w = size() * 0.5;
-        pctx.fillRect(x0 + (x1 - x0) * f + (Math.random() - 0.5) * w * 2, y0 + (y1 - y0) * f + (Math.random() - 0.5) * w * 2, 1.5, 1.5);
-      }
-      pctx.globalAlpha = 1;
-    } else if (t === 'crayon') {
-      pctx.globalCompositeOperation = 'source-over';
-      pctx.fillStyle = strokeColor();
-      var rad = size() * pressureScale(pressure) / 2;
-      var dist = Math.hypot(x1 - x0, y1 - y0);
-      var steps = Math.max(1, Math.ceil(dist / 2));
-      var dots = Math.ceil(rad * 1.2);
-      for (var s = 0; s <= steps; s++) {
-        var cx = x0 + (x1 - x0) * s / steps, cy = y0 + (y1 - y0) * s / steps;
-        for (var k = 0; k < dots; k++) {
-          var a = Math.random() * Math.PI * 2, rr = Math.random() * rad;
-          pctx.globalAlpha = 0.35 + Math.random() * 0.4;
-          var d = 1.5 + Math.random() * 2;
-          pctx.fillRect(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, d, d);
-        }
-      }
-      pctx.globalAlpha = 1;
-    } else if (t === 'eraser') {
-      pctx.globalCompositeOperation = 'source-over';
-      pctx.globalAlpha = 1;
-      pctx.strokeStyle = '#FFFFFF';
-      pctx.lineWidth = size();
-      pctx.lineCap = 'round'; pctx.lineJoin = 'round';
-      pctx.beginPath(); pctx.moveTo(x0, y0); pctx.lineTo(x1, y1); pctx.stroke();
-    }
-  }
-
-  function markerSegment(x0, y0, x1, y1) {
-    sctx.strokeStyle = strokeColor();
-    sctx.lineWidth = size();
+  // Smoothed brush: quadratic curves through midpoints, drawn solid into the stroke
+  // canvas, then composited onto the page through the paper grain for the dirty area only.
+  function brushTo(x, y, pressure, first, finish) {
+    var b = BRUSH[state.tool];
+    var w = finish ? (active.w || size()) : brushWidth(pressure);
     sctx.lineCap = 'round'; sctx.lineJoin = 'round';
-    sctx.beginPath(); sctx.moveTo(x0, y0); sctx.lineTo(x1 + 0.01, y1); sctx.stroke();
+    sctx.strokeStyle = strokeColor();
+    sctx.lineWidth = w;
+    var x0, y0, cx, cy, x1, y1;
+    if (first) {
+      x0 = x; y0 = y; cx = x; cy = y; x1 = x + 0.01; y1 = y;
+    } else if (finish) {
+      x0 = active.endX != null ? active.endX : x; y0 = active.endY != null ? active.endY : y;
+      cx = (x0 + x) / 2; cy = (y0 + y) / 2; x1 = x; y1 = y;
+    } else {
+      // previous point = active.x/y; previous midpoint = active.mx/my (stored as last end)
+      x0 = active.endX != null ? active.endX : active.x; y0 = active.endY != null ? active.endY : active.y;
+      cx = active.x; cy = active.y;
+      x1 = (active.x + x) / 2; y1 = (active.y + y) / 2;
+    }
+    sctx.beginPath(); sctx.moveTo(x0, y0); sctx.quadraticCurveTo(cx, cy, x1, y1); sctx.stroke();
+    active.endX = x1; active.endY = y1;
+    active.mx = active.x; active.my = active.y;
+
+    var pad = w / 2 + 4;
+    var bx = Math.floor(Math.max(0, Math.min(x0, cx, x1) - pad));
+    var by = Math.floor(Math.max(0, Math.min(y0, cy, y1) - pad));
+    var bw = Math.ceil(Math.min(W, Math.max(x0, cx, x1) + pad)) - bx;
+    var bh = Math.ceil(Math.min(H, Math.max(y0, cy, y1) + pad)) - by;
+    if (bw <= 0 || bh <= 0) return;
+    composite(bx, by, bw, bh, b);
+  }
+
+  function composite(bx, by, bw, bh, b) {
+    if (tmpCv.width < bw || tmpCv.height < bh) {
+      tmpCv.width = Math.max(tmpCv.width, bw); tmpCv.height = Math.max(tmpCv.height, bh);
+    }
+    tctx.globalCompositeOperation = 'source-over';
+    tctx.clearRect(0, 0, bw, bh);
+    tctx.drawImage(strokeCv, bx, by, bw, bh, 0, 0, bw, bh);
+    if (b.grain) {
+      tctx.globalCompositeOperation = 'destination-in';
+      tctx.save();
+      tctx.translate(-bx, -by);
+      tctx.fillStyle = tctx.createPattern(GRAIN[b.grain], 'repeat');
+      tctx.fillRect(bx, by, bw, bh);
+      tctx.restore();
+      tctx.globalCompositeOperation = 'source-over';
+    }
+    pctx.globalCompositeOperation = 'source-over';
+    pctx.globalAlpha = 1;
+    pctx.drawImage(active.base, bx, by, bw, bh, bx, by, bw, bh);
+    pctx.globalAlpha = b.alpha;
+    pctx.drawImage(tmpCv, 0, 0, bw, bh, bx, by, bw, bh);
+    pctx.globalAlpha = 1;
+  }
+
+  function eraseTo(x, y, first) {
+    pctx.globalCompositeOperation = 'source-over';
+    pctx.globalAlpha = 1;
+    pctx.strokeStyle = '#FFFFFF';
+    pctx.lineWidth = size();
+    pctx.lineCap = 'round'; pctx.lineJoin = 'round';
+    pctx.beginPath();
+    pctx.moveTo(first ? x : active.x, first ? y : active.y);
+    pctx.lineTo(x + (first ? 0.01 : 0), y);
+    pctx.stroke();
   }
 
   function spray(x, y, amount) {
     var rad = size();
     var n = Math.round(rad * 1.6 * (amount || 1));
     pctx.globalCompositeOperation = 'source-over';
+    pctx.fillStyle = strokeColor();
     for (var i = 0; i < n; i++) {
-      // gaussian-ish distribution: denser in the middle
       var a = Math.random() * Math.PI * 2;
       var rr = rad * (Math.random() + Math.random()) / 2 * (Math.random() < 0.5 ? 1 : Math.random());
       pctx.globalAlpha = 0.55 + Math.random() * 0.45;
-      pctx.fillStyle = strokeColor();
       var d = 2 + Math.random() * 2.5;
-      pctx.fillRect(x + Math.cos(a) * rr, y + Math.sin(a) * rr, d, d);
+      pctx.beginPath();
+      pctx.arc(x + Math.cos(a) * rr, y + Math.sin(a) * rr, d / 2, 0, Math.PI * 2);
+      pctx.fill();
     }
     pctx.globalAlpha = 1;
     if (state.color === 'rainbow') advanceHue(3);
@@ -455,28 +520,24 @@
 
   function stampAt(x, y) {
     active.lastStampX = x; active.lastStampY = y;
-    var s = size();
+    var s = 90;
     pctx.save();
     pctx.globalCompositeOperation = 'source-over';
     pctx.globalAlpha = 1;
     pctx.translate(x, y);
     pctx.rotate((Math.random() - 0.5) * 0.5);
     pctx.fillStyle = strokeColor();
-    var sc = s / 20;
+    var sc = s / 20 * (0.85 + Math.random() * 0.3);
     pctx.scale(sc, sc);
     pctx.translate(-20, -20);
-    if (state.stamp === 'star') {
-      pctx.fill(new Path2D('M20 3 L25 15 L38 15 L27.5 23 L31.5 36 L20 28 L8.5 36 L12.5 23 L2 15 L15 15 Z'));
-    } else if (state.stamp === 'heart') {
-      pctx.fill(new Path2D('M20 36 C2 24 4 6 20 13 C36 6 38 24 20 36 Z'));
-    } else if (state.stamp === 'flower') {
+    if (state.stamp === 'flower') {
       [[20, 9], [31, 17], [27, 30], [13, 30], [9, 17]].forEach(function (c) {
         pctx.beginPath(); pctx.arc(c[0], c[1], 7, 0, Math.PI * 2); pctx.fill();
       });
-      pctx.fillStyle = state.color === '#FFD60A' ? '#FF9500' : '#FFD60A';
+      pctx.fillStyle = state.color === '#F9D648' ? '#F7932E' : '#F9D648';
       pctx.beginPath(); pctx.arc(20, 20, 6, 0, Math.PI * 2); pctx.fill();
     } else {
-      pctx.beginPath(); pctx.arc(20, 20, 15, 0, Math.PI * 2); pctx.fill();
+      pctx.fill(new Path2D(STAMP_PATHS[state.stamp]));
     }
     pctx.restore();
     if (state.color === 'rainbow') advanceHue(40);
@@ -489,7 +550,7 @@
     var colorFn;
     if (state.color === 'rainbow') {
       var base = state.hue;
-      colorFn = function (px, py) { return hslToRgb((base + (px + py) * 0.18) % 360, 95, 60); };
+      colorFn = function (px, py) { return hslToRgb((base + (px + py) * 0.18) % 360, 80, 62); };
       advanceHue(60);
     } else {
       var rgb = hexToRgb(state.color);
@@ -544,7 +605,8 @@
   // ---------- Boot ----------
   buildPalette();
   buildGallery();
-  setTool(state.tool);
+  state.tool = null;
+  setTool('crayon');
   setColor(state.color);
 
   // Offline support when hosted; skipped on localhost so edits show up immediately.

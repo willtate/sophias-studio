@@ -81,8 +81,6 @@
           circle(800, 430, 190),
           path('M666 296 L640 120 L751 246'),
           path('M934 296 L960 120 L849 246'),
-          path('M680 292 L668 190 L735 252'),
-          path('M920 292 L932 190 L865 252'),
           ellipse(730, 410, 30, 42), ellipse(870, 410, 30, 42),
           circle(736, 420, 14, true), circle(876, 420, 14, true),
           path('M778 478 L822 478 L800 504 Z', true),
@@ -92,8 +90,13 @@
           path('M1058 880 C1250 950 1300 740 1200 640 C1170 610 1125 630 1150 662 C1230 760 1190 900 1035 950'),
           path('M720 1076 L720 960 M880 1076 L880 960'),
           ellipse(800, 760, 120, 90),
-          path('M300 1080 L1300 1080'),
-          heart(260, 300, 70), heart(1360, 260, 55), star(1380, 760, 60), star(220, 760, 50)
+          path('M160 1080 L1440 1080'),
+          // ball of yarn with a loose thread running to the cat's paw
+          circle(330, 990, 90),
+          path('M262 930 Q330 990 290 1066 M300 912 Q400 980 352 1076 M250 990 Q330 950 410 1010'),
+          path('M420 995 Q560 1050 690 1062'),
+          // a little mouse hole in the wall
+          path('M1220 1080 L1220 980 A70 70 0 0 1 1360 980 L1360 1080')
         ].join('');
       }
     },
@@ -271,7 +274,7 @@
 
   function svgFor(page) {
     return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
-      '<g fill="none" stroke="#222" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">' +
+      '<g fill="none" stroke="#222" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">' +
       page.art() + '</g></svg>';
   }
 
