@@ -390,8 +390,127 @@
     } catch (e) {}
   }
 
+  // ---------- background music ----------
+  // A quiet music-box lullaby in 3/4, written for this app. It's scheduled a little ahead
+  // of time on the audio clock, pauses while the app is put away, and dips while the
+  // voice is talking. Every second time round the tune is played softer and rounder,
+  // and there's a short rest between rounds so it never feels like it's nagging.
+  var musicOn = true;
+  try { musicOn = window.localStorage.getItem('studio-music') !== '0'; } catch (e) {}
+  var MUSIC_VOL = 0.42, BEAT = 0.72; // 83 beats a minute
+  var musicBus = null, musicTimer = null, musicNext = 0, musicStep = 0, musicRound = 0;
+
+  // Chords for each bar: [bass, chord notes for beats 2 and 3] (MIDI numbers).
+  var CH = {
+    C: [48, [60, 64, 67]], Am: [45, [60, 64, 69]], F: [41, [60, 65, 69]], G: [43, [59, 62, 67]],
+    Em: [40, [59, 64, 67]], Dm: [38, [62, 65, 69]]
+  };
+  // 16 bars: chord, then melody notes as [midi, beat, length in beats].
+  var TUNE = [
+    ['C',  [[76, 0, 1], [79, 1, 1], [84, 2, 1]]],
+    ['Am', [[83, 0, 2], [81, 2, 1]]],
+    ['F',  [[81, 0, 1], [77, 1, 1], [81, 2, 1]]],
+    ['G',  [[79, 0, 3]]],
+    ['C',  [[76, 0, 1], [79, 1, 1], [84, 2, 1]]],
+    ['Em', [[83, 0, 1], [86, 1, 1], [83, 2, 1]]],
+    ['F',  [[81, 0, 1], [79, 1, 1], [77, 2, 1]]],
+    ['C',  [[76, 0, 2], [72, 2, 1]]],
+    ['F',  [[81, 0, 1], [84, 1, 1], [81, 2, 1]]],
+    ['C',  [[79, 0, 2], [76, 2, 1]]],
+    ['Dm', [[77, 0, 1], [81, 1, 1], [86, 2, 1]]],
+    ['G',  [[84, 0, 2], [83, 2, 1]]],
+    ['Am', [[84, 0, 1], [83, 1, 1], [81, 2, 1]]],
+    ['F',  [[81, 0, 1], [79, 1, 1], [77, 2, 1]]],
+    ['G',  [[74, 0, 1], [79, 1, 1], [83, 2, 1]]],
+    ['C',  [[84, 0, 3]]]
+  ];
+  var REST_BARS = 3;
+
+  function hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+  // Music box: a sine with a quiet bright overtone and a quick, ringing decay.
+  function box(t, m, g, len) {
+    var f = hz(m), d = Math.max(0.5, len * BEAT * 1.6);
+    tone(ctx, musicBus, t, { f: f, a: 0.004, d: d, g: g });
+    tone(ctx, musicBus, t, { f: f * 3, a: 0.002, d: d * 0.18, g: g * 0.12 });
+  }
+  // Soft round voice for the gentler rounds.
+  function flute(t, m, g, len) {
+    tone(ctx, musicBus, t, { f: hz(m), a: 0.08, d: len * BEAT * 1.1, g: g });
+  }
+
+  function scheduleBar(t, bar, round) {
+    var b = TUNE[bar], ch = CH[b[0]], soft = round % 2 === 1, i, n;
+    // oom-pah-pah: low note on beat 1, the chord softly on beats 2 and 3
+    tone(ctx, musicBus, t, { type: 'triangle', f: hz(ch[0]), a: 0.02, d: BEAT * 2.4, g: 0.16 });
+    for (var beat = 1; beat < 3; beat++) {
+      for (i = 0; i < ch[1].length; i++) box(t + beat * BEAT + i * 0.012, ch[1][i], 0.035, 0.6);
+    }
+    for (i = 0; i < b[1].length; i++) {
+      n = b[1][i];
+      var at = t + n[1] * BEAT + rnd(-0.008, 0.008);
+      if (soft) flute(at, n[0] - 12, 0.1, n[2]);
+      else box(at, n[0], 0.13, n[2]);
+    }
+    if (bar === TUNE.length - 1) { // little sparkle to finish
+      for (i = 0; i < 4; i++) box(t + BEAT * 1.5 + i * 0.09, [84, 88, 91, 96][i], 0.04, 0.5);
+    }
+  }
+
+  function musicTick() {
+    try {
+      if (!musicOn || !ready() || ctx.state !== 'running' || document.hidden) { musicNext = 0; return; }
+      var now = ctx.currentTime;
+      ensureBus();
+      // speak over the music: dip it while the voice is talking
+      var talking = window.speechSynthesis && speechSynthesis.speaking;
+      musicBus.gain.setTargetAtTime(MUSIC_VOL * (talking ? 0.3 : 1), now, talking ? 0.08 : 0.6);
+      if (!musicNext || musicNext < now) { musicNext = now + 0.25; } // (re)start cleanly
+      while (musicNext < now + 1.2) {
+        var steps = TUNE.length + REST_BARS;
+        if (musicStep < TUNE.length) scheduleBar(musicNext, musicStep, musicRound);
+        musicNext += BEAT * 3;
+        musicStep++;
+        if (musicStep >= steps) { musicStep = 0; musicRound++; }
+      }
+    } catch (e) {}
+  }
+
+  function ensureBus() {
+    if (musicBus) return;
+    musicBus = ctx.createGain();
+    musicBus.gain.value = 0;
+    var lp = ctx.createBiquadFilter(); // far away and soft: no sparkly highs
+    lp.type = 'lowpass'; lp.frequency.value = 2600; lp.Q.value = 0.3;
+    musicBus.connect(lp); lp.connect(out);
+  }
+
+  function startMusic() {
+    if (!musicTimer) musicTimer = setInterval(musicTick, 250);
+    musicTick();
+  }
+
+  function setMusic(on) {
+    musicOn = !!on;
+    try { window.localStorage.setItem('studio-music', musicOn ? '1' : '0'); } catch (e) {}
+    if (musicOn) { musicStep = 0; musicNext = 0; startMusic(); }
+    else {
+      clearInterval(musicTimer); musicTimer = null; musicNext = 0;
+      try { if (musicBus) musicBus.gain.setTargetAtTime(0, ctx.currentTime, 0.15); } catch (e) {}
+      // notes already scheduled are faded out with the bus, then a fresh bus is made next time
+      var old = musicBus; musicBus = null;
+      setTimeout(function () { try { old && old.disconnect(); } catch (e) {} }, 1500);
+    }
+  }
+
+  // The first tap anywhere unlocks audio; start the music as soon as it's allowed.
+  try {
+    document.addEventListener('pointerup', function () { if (musicOn && !musicTimer) setTimeout(startMusic, 50); }, true);
+  } catch (e) {}
+
   var Sound = {
     unlock: unlock,
+    setMusic: setMusic,
     play: play,
     brushStart: brushStart,
     brushMove: brushMove,
@@ -400,6 +519,7 @@
   };
   try {
     Object.defineProperty(Sound, 'muted', { get: function () { return muted; }, enumerable: true });
+    Object.defineProperty(Sound, 'music', { get: function () { return musicOn; }, enumerable: true });
   } catch (e) { Sound.muted = muted; }
 
   window.Sound = Sound;

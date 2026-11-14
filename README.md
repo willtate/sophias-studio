@@ -22,6 +22,9 @@ An ad-free, upsell-free coloring app for iPad. Built as an installable web app (
 - Every page **saves automatically** on the device, and the gallery shows progress.
 - The yellow camera button opens the iPad share sheet, so the picture can be saved to Photos.
 - **Apple Pencil**: pressure-sensitive pencil and crayon. Once the Pencil is used, finger and palm touches on the page are ignored.
+- **Background music**: a quiet music-box lullaby (made in code, no audio files) that starts on the first tap,
+  dips while the voice talks and pauses when the app is put away. The ♪ button (home screen and drawing
+  toolbar) turns it off or on, and the choice is remembered.
 - No network calls, no tracking, no accounts.
 
 ## Run it locally

@@ -53,6 +53,17 @@ img { -webkit-user-drag: none; }
   display: flex; align-items: center; justify-content: center;
 }
 .back svg { width: 40px; height: 40px; }
+.home-head > .music-btn {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  width: 60px; height: 60px; border-radius: 50%; background: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.home-head > .music-btn svg { width: 34px; height: 34px; }
+.home-head > .music-btn:active { transform: translateY(-50%) scale(.92); }
+.music-btn svg { fill: var(--ink); }
+.music-btn .off { display: none; }
+.music-btn.is-off svg { opacity: .45; }
+.music-btn.is-off .off { display: inline; }
 .back:active { transform: translateY(-50%) scale(.92); }
 
 .grid { display: grid; gap: 24px; max-width: 1200px; margin: 0 auto; }

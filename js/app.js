@@ -1828,6 +1828,21 @@
     if (document.visibilityState === 'hidden') saveNow();
   });
 
+  // ---------- Background music ----------
+  function showMusic() {
+    var on = window.Sound && Sound.music;
+    ['#musicHome', '#musicStudio'].forEach(function (id) { $(id).classList.toggle('is-off', !on); });
+  }
+  ['#musicHome', '#musicStudio'].forEach(function (id) {
+    $(id).addEventListener('click', function () {
+      if (!window.Sound) return;
+      Sound.setMusic(!Sound.music);
+      snd('tap');
+      showMusic();
+    });
+  });
+  showMusic();
+
   // ---------- Boot ----------
   buildPalette();
   loadMine().then(buildGallery, buildGallery);
