@@ -13,6 +13,10 @@ An ad-free, upsell-free coloring app for iPad. Built as an installable web app (
 - **Scratch Art**: four black pages (rainbow, galaxy, gold, candy) where every pen scratches away the black.
 - **Talking stickers**: stickers show their word underneath ("cat") and say it; tap the word to hear it again.
   The sticker picker has a ✍️ name sticker for signing pictures, and a 🐱 cat button to turn the words off.
+- **Change stickers and words later**: with the sticker or letters tool, tap (or drag) a sticker or word that's
+  already on the page to pick it back up, then move it, pinch to resize and twist, retype it (letters tool),
+  or tap ✕ to take it off. Moved ones go on top of the colouring; undo puts them back. It works by redrawing
+  the page from the "watch it again" log without that sticker, so nothing under it is lost.
 - **Tools**: pencil, crayon, marker, glitter, neon, spray paint, paint bucket, stamps, stickers, letters, eraser.
 - **Paint bucket** fills the whole shape between the outlines, even over crayon already in it (on the blank page it fills by colour instead).
 - **Stamps**: tap the stamp tool to pick a size, a shape in the current colour (star, heart, flower, dot) or one of 74 emoji.

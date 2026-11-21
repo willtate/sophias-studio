@@ -375,3 +375,7 @@ img { -webkit-user-drag: none; }
 .pick.words-pick.active { opacity: 1; }
 .pick.words-pick b { font: 800 16px ui-rounded, -apple-system, sans-serif; color: var(--ink); }
 .pick .emoji { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; font-weight: 400; }
+
+/* A sticker or word picked back up off the page gives a little hop. */
+.floater.lifted .content { animation: lift-hop .35s ease-out; }
+@keyframes lift-hop { 0% { transform: scale(1); } 45% { transform: scale(1.14); } 100% { transform: scale(1); } }

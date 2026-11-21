@@ -585,6 +585,7 @@
       if (sz) sz.dataset.size = state.sizes[b.dataset.tool];
     });
     renderStampIcon();
+    if ((t === 'sticker' || t === 'text') && state.page) warmFills();
     // The letters tool starts a word straight away, with the keyboard open.
     if (t === 'text' && !same && !booting && state.page && !floater) startText(W / 2, H * 0.3);
   }
@@ -683,6 +684,14 @@
     log.actions.push(action);
     refreshButtons();
   }
+  // An older sticker or word was moved, changed or removed: the log entry is changed in place.
+  function pushEdit(before, rect, a, from, to, fromIndex) {
+    undoStack.push({ x: rect.x, y: rect.y, cv: crop(before, rect), edit: { a: a, from: from, to: to, at: fromIndex } });
+    if (undoStack.length > MAX_UNDO) release(undoStack.shift().cv);
+    redoStack.forEach(function (r) { release(r.before); release(r.after); });
+    redoStack = [];
+    refreshButtons();
+  }
   function undo() {
     commitFloater();
     var e = undoStack.pop();
@@ -692,9 +701,17 @@
     resetCtx();
     pctx.clearRect(e.x, e.y, e.cv.width, e.cv.height);
     pctx.drawImage(e.cv, e.x, e.y);
-    var i = log.actions.lastIndexOf(e.action);
-    if (i >= 0) log.actions.splice(i, 1);
-    redoStack.push({ x: e.x, y: e.y, before: e.cv, after: after, action: e.action });
+    if (e.edit) {
+      e.edit.a.o = e.edit.from;
+      if (e.edit.at >= 0) { // it had gone to the top: put it back in its old place
+        var j = log.actions.indexOf(e.edit.a);
+        if (j >= 0) { log.actions.splice(j, 1); log.actions.splice(e.edit.at, 0, e.edit.a); }
+      }
+    } else {
+      var i = log.actions.lastIndexOf(e.action);
+      if (i >= 0) log.actions.splice(i, 1);
+    }
+    redoStack.push({ x: e.x, y: e.y, before: e.cv, after: after, action: e.action, edit: e.edit });
     refreshButtons();
     scheduleSave();
   }
@@ -706,8 +723,14 @@
     pctx.clearRect(r.x, r.y, r.after.width, r.after.height);
     pctx.drawImage(r.after, r.x, r.y);
     release(r.after);
-    undoStack.push({ x: r.x, y: r.y, cv: r.before, action: r.action });
-    log.actions.push(r.action);
+    undoStack.push({ x: r.x, y: r.y, cv: r.before, action: r.action, edit: r.edit });
+    if (r.edit) {
+      r.edit.a.o = r.edit.to;
+      if (r.edit.at >= 0) {
+        var j = log.actions.indexOf(r.edit.a);
+        if (j >= 0) { log.actions.splice(j, 1); log.actions.push(r.edit.a); }
+      }
+    } else log.actions.push(r.action);
     refreshButtons();
     scheduleSave();
   }
@@ -744,6 +767,7 @@
   }
 
   var openedAt = 0;
+  var baseImg = null; // the starting picture of a page saved before the action log existed
   function openPage(p) {
     snd('page');
     state.page = p;
@@ -762,6 +786,7 @@
     galleryCat = p.category;
     clearHistory();
     log = { base: false, actions: [] };
+    baseImg = null;
     refreshButtons();
     clearPaint();
     lineImg.src = p.svgUrl;
@@ -785,6 +810,13 @@
         // A picture from before "watch it again" existed: replay starts from it.
         log = { base: true, actions: [] };
         ArtStore.put(p.id + '::base', blob);
+      }
+      if (log.base) {
+        ArtStore.get(p.id + '::base').then(function (b) {
+          if (!b || state.page !== p) return;
+          var u = URL.createObjectURL(b);
+          loadImage(u).then(function (im) { if (state.page === p) baseImg = im; URL.revokeObjectURL(u); });
+        });
       }
       refreshButtons();
       if (!blob) { if (trace) trace.ready = true; return; }
@@ -1334,9 +1366,20 @@
     var action = { t: 'fill', x: r1(x), y: r1(y), color: state.color, hue: r1(state.hue), mirror: state.mirror };
     if (runFill(action, true)) { snd('fill'); scheduleSave(); }
   }
+  var fillShapes = typeof WeakMap === 'function' ? new WeakMap() : null; // fill action -> its shapes
   function runFill(a, record) {
     var before = record ? snapshot() : null;
     var img = pctx.getImageData(0, 0, W, H);
+    var box = fillInto(img, a);
+    if (box) {
+      pctx.putImageData(img, 0, 0);
+      if (record) pushHistory(before, clipRect(box), a);
+    }
+    release(before);
+    return !!box;
+  }
+  // Flood-fills into image data; returns the area changed (or null).
+  function fillInto(img, a) {
     var colorFn;
     state.hue = a.hue;
     if (a.color === 'rainbow') {
@@ -1351,18 +1394,23 @@
     var saveMirror = state.mirror;
     state.mirror = a.mirror;
     var box = null;
-    mirrorsOf(a.x, a.y).forEach(function (p) {
-      var r = ColorFill.floodFill(img, lineMask, p[0], p[1], colorFn, 60, linesOnly);
+    // On a colouring page a fill's shape only depends on the outlines, so it's remembered
+    // and redrawing the page (after an older sticker moves) doesn't have to flood it again.
+    var shapes = linesOnly && fillShapes ? fillShapes.get(a) : null, made = [];
+    mirrorsOf(a.x, a.y).forEach(function (p, mi) {
+      var r;
+      if (shapes) r = ColorFill.paintRuns(img, shapes[mi], colorFn);
+      else {
+        var out = linesOnly && fillShapes ? {} : null;
+        r = ColorFill.floodFill(img, lineMask, p[0], p[1], colorFn, 60, linesOnly, out);
+        if (out) made.push(out.runs || new Int32Array(0));
+      }
       if (r) box = box ? { x0: Math.min(box.x0, r.x), y0: Math.min(box.y0, r.y), x1: Math.max(box.x1, r.x + r.w), y1: Math.max(box.y1, r.y + r.h) }
                        : { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h };
     });
     state.mirror = saveMirror;
-    if (box) {
-      pctx.putImageData(img, 0, 0);
-      if (record) pushHistory(before, clipRect(box), a);
-    }
-    release(before);
-    return !!box;
+    if (!shapes && linesOnly && fillShapes) fillShapes.set(a, made);
+    return box;
   }
 
   board.addEventListener('pointerdown', onDown);
@@ -1418,7 +1466,7 @@
       });
       el.appendChild(wd);
     }
-    el.querySelector('.obj-x').addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); removeFloater(); });
+    el.querySelector('.obj-x').addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); throwAwayFloater(); });
     el.querySelector('.obj-ok').addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); commitFloater(); });
     objLayer.appendChild(el);
     floater.el = el;
@@ -1462,15 +1510,25 @@
     closeKeyboard();
   }
 
+  // The X: a new floater just goes; an older one that was picked up is taken off the page.
+  function throwAwayFloater() {
+    if (!floater) return;
+    var f = floater;
+    removeFloater();
+    if (f.src) finishEdit(f, null);
+    snd('undo');
+  }
+
   // Stick the floater onto the page (and into undo and the replay log).
   function commitFloater() {
     if (!floater) return;
     var f = floater;
     removeFloater();
-    if (f.kind === 'text' && !f.text.trim()) return;
+    if (f.kind === 'text' && !f.text.trim()) { if (f.src) finishEdit(f, null); return; }
     var o = { kind: f.kind, text: f.text, x: r1(f.x), y: r1(f.y), size: r1(f.size), rot: Math.round(f.rot * 1000) / 1000,
       color: f.color, hue: r1(f.hue || 0), style: f.style };
     if (f.word) o.word = f.word;
+    if (f.src) { finishEdit(f, o); snd(f.kind === 'sticker' ? 'sticker' : 'stamp'); return; }
     var before = snapshot();
     var rect = drawObject(pctx, o);
     var r = clipRect(rect);
@@ -1536,6 +1594,164 @@
     return { x0: o.x - rad, y0: o.y - rad, x1: o.x + rad, y1: o.y + rad };
   }
 
+  // ---------- Picking up a sticker or word that's already stuck down ----------
+  // Each one is still in the action log, so the page is redrawn from the log without it,
+  // it becomes a floater again, and when it's stuck back down it keeps its place in the log
+  // (so anything coloured over it later stays on top).
+  var measureCtx = makeCanvas(4, 4).getContext('2d');
+  function objectSize(o) {
+    var x = measureCtx;
+    if (o.kind === 'sticker') {
+      x.font = Math.round(o.size) + 'px ' + EMOJI_FONT;
+      var w = x.measureText(o.text).width, h = o.size * 1.1;
+      if (o.word) h = o.size * 1.1 + o.size * 0.55; // the word label underneath
+      return { w: w, h: h, dy: o.word ? o.size * 0.25 : 0 };
+    }
+    x.font = '800 ' + Math.round(o.size) + 'px ' + FONT;
+    return { w: x.measureText(o.text).width, h: o.size * 1.1, dy: 0 };
+  }
+  function objectAt(x, y) {
+    var acts = log.actions;
+    for (var i = acts.length - 1; i >= 0; i--) {
+      var a = acts[i];
+      if (a.t === 'clear') return null; // nothing before a "start over" is on the page any more
+      if (a.t !== 'obj' || !a.o) continue;
+      var o = a.o, d = objectSize(o);
+      var c = Math.cos(-o.rot), sn = Math.sin(-o.rot);
+      var lx = (x - o.x) * c - (y - o.y) * sn, ly = (x - o.x) * sn + (y - o.y) * c - d.dy;
+      var m = 20;
+      if (Math.abs(lx) < d.w / 2 + m && Math.abs(ly) < d.h / 2 + m) return a;
+    }
+    return null;
+  }
+
+  // Work out the shapes of fills from earlier visits ahead of time, one per frame, so that
+  // picking up a sticker doesn't have to wait for them.
+  var warming = null;
+  function warmFills() {
+    if (warming || !fillShapes || (state.page && state.page.fillByColor)) return;
+    var page = state.page, scratchImg = null, i = 0;
+    warming = true;
+    (function next() {
+      if (state.page !== page || !lineMask) { warming = null; return; }
+      var acts = log.actions;
+      while (i < acts.length && (acts[i].t !== 'fill' || fillShapes.get(acts[i]))) i++;
+      if (i >= acts.length) { warming = null; return; }
+      if (!scratchImg) scratchImg = new ImageData(W, H);
+      var hue = state.hue;
+      fillInto(scratchImg, acts[i]);
+      state.hue = hue;
+      i++;
+      setTimeout(next, 16);
+    })();
+  }
+
+  // Redraw the page from the action log (used after an older sticker or word changes).
+  // With `from` and `pic`, it starts from a saved picture of the page just before action `from`.
+  // `stopAt` saves a picture of the page just before that action (into lift.prefix).
+  function rebuildPaint(from, pic, stopAt) {
+    var start = 0, fromBase = log.base, i;
+    for (i = log.actions.length - 1; i >= 0; i--) {
+      if (log.actions[i].t === 'clear') { start = i + 1; fromBase = false; break; }
+    }
+    var prefix = null, img = null;
+    function flushFills() { if (img) { pctx.putImageData(img, 0, 0); img = null; } }
+    var keep = { tool: state.tool, color: state.color, sizes: JSON.parse(JSON.stringify(state.sizes)),
+      stamp: state.stamp, mirror: state.mirror, hue: state.hue, seed: seed };
+    var was = replaying;
+    replaying = true;
+    if (pic && from >= start) { resetCtx(); pctx.clearRect(0, 0, W, H); pctx.drawImage(pic, 0, 0); start = from; }
+    else {
+      clearPaint();
+      if (fromBase && baseImg) pctx.drawImage(baseImg, 0, 0, W, H);
+    }
+    for (i = start; i < log.actions.length; i++) {
+      var a = log.actions[i];
+      if (i === stopAt) { flushFills(); prefix = snapshot(); }
+      if (a.t === 'fill') {
+        // Fills in a row share one read and one write of the page.
+        if (!img) img = pctx.getImageData(0, 0, W, H);
+        fillInto(img, a);
+        continue;
+      }
+      flushFills();
+      if (a.t === 'stroke') {
+        state.tool = a.tool; state.color = a.color; state.sizes[a.tool] = a.size; state.stamp = a.stamp;
+        state.mirror = a.mirror; state.hue = a.hue; seed = a.seed;
+        var c0 = a.calls[0] || ['b', 0, 0];
+        active = newActive(c0[1], c0[2]);
+        beginStroke();
+        for (var k = 0; k < a.calls.length; k++) run(a.calls[k][0], a.calls[k].slice(1));
+        endStroke();
+        active = null;
+      } else if (a.t === 'obj') { if (a.o) drawObject(pctx, a.o); }
+      else if (a.t === 'clear') clearPaint();
+    }
+    flushFills();
+    state.tool = keep.tool; state.color = keep.color; state.sizes = keep.sizes; state.stamp = keep.stamp;
+    state.mirror = keep.mirror; state.hue = keep.hue; seed = keep.seed;
+    resetCtx();
+    replaying = was;
+    return prefix;
+  }
+
+  // The part of the page that differs between two pictures (for undo).
+  function changedRect(a, b) {
+    var da = a.getContext('2d').getImageData(0, 0, W, H).data, db = pctx.getImageData(0, 0, W, H).data;
+    var x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for (var y = 0; y < H; y++) {
+      var row = y * W * 4;
+      for (var x = 0; x < W; x++) {
+        var j = row + x * 4;
+        if (da[j] !== db[j] || da[j + 1] !== db[j + 1] || da[j + 2] !== db[j + 2] || da[j + 3] !== db[j + 3]) {
+          if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; y1 = y;
+        }
+      }
+    }
+    return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  }
+
+  function liftObject(a) {
+    if (!lineMask) return false;
+    if (log.base && !baseImg && !log.actions.some(function (q) { return q.t === 'clear'; })) return false;
+    var o = a.o;
+    var before = snapshot();
+    a.o = null;
+    var at = log.actions.indexOf(a);
+    var prefix = rebuildPaint(0, null, at);
+    floater = { kind: o.kind, text: o.text, x: o.x, y: o.y, size: o.size, rot: o.rot, color: o.color,
+      hue: o.hue, style: o.style, src: a, orig: o, before: before, prefix: prefix };
+    if (o.word) floater.word = o.word;
+    makeFloaterEl();
+    floater.el.classList.add('lifted');
+    snd('sticker');
+    if (o.kind === 'sticker' && o.word) say(o.word);
+    if (o.kind === 'text' && state.tool === 'text') openKeyboard();
+    return true;
+  }
+
+  // Put a picked-up sticker or word back (o), or leave it off the page (null).
+  // One that was moved or changed goes on top of everything; one put back as it was keeps its place.
+  function finishEdit(f, o) {
+    var a = f.src;
+    var at = log.actions.indexOf(a);
+    var same = o && JSON.stringify(o) === JSON.stringify(f.orig);
+    a.o = o;
+    var moved = false;
+    if (o && !same && at >= 0 && at < log.actions.length - 1) {
+      log.actions.splice(at, 1);
+      log.actions.push(a);
+      moved = true;
+    }
+    // only what came after its old place needs drawing again
+    if (o) rebuildPaint(at, f.prefix && at >= 0 ? f.prefix : null);
+    var r = changedRect(f.before, paint);
+    if (r) pushEdit(f.before, r, a, f.orig, o, moved ? at : -1);
+    else if (same) a.o = f.orig;
+    release(f.before); release(f.prefix);
+    scheduleSave();
+  }
+
   function roundRect(ctx, x, y, w, h, rr) {
     ctx.beginPath();
     ctx.moveTo(x + rr, y); ctx.lineTo(x + w - rr, y); ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
@@ -1563,6 +1779,9 @@
       commitFloater();
       objPtrs[e.pointerId] = { x: e.clientX, y: e.clientY };
       var pt = toCanvas(e);
+      // ...unless she tapped a sticker or word that's already on the page: pick that one up.
+      var old = objectAt(pt.x, pt.y);
+      if (old && liftObject(old)) { startGesture(); return; }
       if (state.tool === 'sticker') placeSticker(pt.x, pt.y);
       else startText(pt.x, pt.y);
       startGesture();
@@ -1571,8 +1790,8 @@
     }
   }
   function startGesture() {
-    if (!floater) { gesture = null; return; }
     var ids = Object.keys(objPtrs);
+    if (!floater || !ids.length) { gesture = null; return; }
     var a = objPtrs[ids[0]], b = ids.length > 1 ? objPtrs[ids[1]] : null;
     gesture = { fx: floater.x, fy: floater.y, size: floater.size, rot: floater.rot,
       cx: b ? (a.x + b.x) / 2 : a.x, cy: b ? (a.y + b.y) / 2 : a.y,
@@ -1753,7 +1972,7 @@
           if (ci >= a.calls.length) { endStroke(); active = null; ai++; ci = 0; }
         } else {
           if (a.t === 'fill') { runFill(a, false); snd('fill'); }
-          else if (a.t === 'obj') { drawObject(pctx, a.o); snd(a.o.kind === 'sticker' ? 'sticker' : 'stamp'); }
+          else if (a.t === 'obj') { if (a.o) { drawObject(pctx, a.o); snd(a.o.kind === 'sticker' ? 'sticker' : 'stamp'); } }
           else if (a.t === 'clear') clearPaint();
           ai++;
           wait = 12;
@@ -1825,7 +2044,7 @@
   });
 
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'hidden') saveNow();
+    if (document.visibilityState === 'hidden') { commitFloater(); saveNow(); }
   });
 
   // ---------- Background music ----------

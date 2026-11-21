@@ -9,7 +9,9 @@
   // linesOnly: the region is the whole shape between the outlines, whatever paint is
   // already in it (what a child expects on a coloring page). Otherwise the region is
   // bounded by paint of a different colour too (blank page).
-  function floodFill(img, lineMask, sx, sy, colorFn, tolerance, linesOnly) {
+  // out (optional): out.runs is set to the filled pixels as [start, length, ...] runs,
+  // so the same fill can be painted again quickly with paintRuns.
+  function floodFill(img, lineMask, sx, sy, colorFn, tolerance, linesOnly, out) {
     var W = img.width, H = img.height, d = img.data;
     tolerance = tolerance == null ? 48 : tolerance;
     if (linesOnly) tolerance = 1e9;
@@ -82,8 +84,16 @@
 
     // Returns the changed area {x, y, w, h}, or null if nothing was filled.
     var n = W * H, any = false, x0 = W, y0 = H, x1 = -1, y1 = -1;
+    var runs = out ? [] : null, runStart = -1;
     for (var j = 0; j < n; j++) {
-      if (!filled[j]) continue;
+      if (!filled[j]) {
+        if (runStart >= 0) { runs.push(runStart, j - runStart); runStart = -1; }
+        continue;
+      }
+      if (runs && (runStart < 0 || j % W === 0)) {
+        if (runStart >= 0) runs.push(runStart, j - runStart);
+        runStart = j;
+      }
       any = true;
       var px = j % W, py = (j / W) | 0;
       if (px < x0) x0 = px; if (px > x1) x1 = px;
@@ -92,7 +102,26 @@
       var o = j * 4;
       d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
     }
+    if (runs) {
+      if (runStart >= 0) runs.push(runStart, n - runStart);
+      out.runs = new Int32Array(runs);
+    }
     return any ? { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 } : null;
+  }
+
+  // Paints a fill saved by floodFill's `out` again; returns the changed area or null.
+  function paintRuns(img, runs, colorFn) {
+    var W = img.width, d = img.data, x0 = W, y0 = img.height, x1 = -1, y1 = -1;
+    for (var r = 0; r < runs.length; r += 2) {
+      var j = runs[r], len = runs[r + 1], py = (j / W) | 0, sx = j - py * W;
+      if (sx < x0) x0 = sx; if (sx + len - 1 > x1) x1 = sx + len - 1;
+      if (py < y0) y0 = py; if (py > y1) y1 = py;
+      for (var k = 0; k < len; k++) {
+        var c = colorFn(sx + k, py), o = (j + k) * 4;
+        d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+      }
+    }
+    return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
   }
 
   function buildLineMask(lineCtx, W, H) {
@@ -104,5 +133,5 @@
     return mask;
   }
 
-  window.ColorFill = { floodFill: floodFill, buildLineMask: buildLineMask };
+  window.ColorFill = { floodFill: floodFill, paintRuns: paintRuns, buildLineMask: buildLineMask };
 })();
